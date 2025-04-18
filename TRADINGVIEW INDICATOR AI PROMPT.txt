@@ -1,0 +1,11 @@
+i rejected the combined indicator file, because I haven't fully broken down how/what should be going on inside this indicator..
+
+so listen..
+
+I want there to be rectangles on the chart the represent different things.
+
+1. A Set of rectangles will represent orderblocks both bullish and bearish that are 15 pips or closer to the EMA. All other OB's on the chart that do not meet this requirement should not be visible on the chart.
+
+2.  Another set of rectangles will be drawn for the M and W patterns picked  up by the relevant indicator. I have attached an image of how exactly the rectangles be drawn. In the image attached, the green lines shown is how I would like the rectangles that represent the M's and W's to be drawn, one end of the rectangle should be highest point of the M or W and the other end of the rectangle should the 'neck' of the M or W, 
+
+Everything else on the chart should then be hidden, only the M/W rectangles and the OB rectangles that are 15 pips or less away from the EMA should be shown. Got it? explain to me what I just said in such a way to prove that you truly understood me?
