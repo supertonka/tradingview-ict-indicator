@@ -1,2 +1,15 @@
-# tradingview-ict-indicator
-A tradingview indicator I am building for one of my clients. It combines an EMA, Orderblocks and an M &amp; W pattern indicator. 
+
+# A trading view ICT indicator that combines an EMA, an Order block and M & W patterns
+
+
+## Documentation
+
+[Super Cloud Man - [AWS] [AWS] Building a custom ICT indicator for tradingview ✨✨ ](https://supercloudman.com/)
+
+### This Repo contains some dependencies for this project
+
+
+## Authors
+
+- [@supertonkaman](https://www.github.com/supertonka)
+
