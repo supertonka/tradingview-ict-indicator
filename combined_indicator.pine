@@ -15,7 +15,9 @@ emaLength = input.int(20, "EMA Length", minval=1)
 
 emaPipDistance = input.float(15.0, "OB Distance from EMA (pips)", minval=1.0)
 
-// Original OrderBlock Parameters
+// ==================
+// OrderBlock Parameters
+// ==================
 obLength = input.int(5, 'Volume Pivot Length', minval = 1)
 bullExtLast = input.int(3, 'Bullish OB ', minval = 1, inline = 'bull')
 bgBullCss = input.color(color.new(#169400, 80), '', inline = 'bull')
@@ -24,30 +26,16 @@ bullAvgCss = input.color(color.new(#9598a1, 37), '', inline = 'bull')
 bearExtLast = input.int(3, 'Bearish OB', minval = 1, inline = 'bear')
 bgBearCss = input.color(color.new(#ff1100, 80), '', inline = 'bear')
 bearCss = input.color(#ff1100, '', inline = 'bear')
-
-
-
-
-
 bearAvgCss = input.color(color.new(#9598a1, 37), '', inline = 'bear')
 
-// Original M-W Pattern Parameters
-length = input.int(10, step=5, minval=5)
-showZigzag = input.bool(false, "Show Zigzag")
-showPivots = input.bool(true, "Show Pivots")
-showStats = input.bool(true, "Show Stats")
-bullishColor = input.color(color.green)
-bullTrapColor = input.color(color.orange)
-bearishColor = input.color(color.red)
-bearTrapColor = input.color(color.lime)
-textColor = input.color(color.black)
-MaxRiskPerReward = input.int(30, step=5, minval=5, maxval=100)
-
-
-DisplayRiskPerReward = input.bool(true)
+// ==================
+// M&W Pattern Parameters
+// ==================
+pivotLeg = input.int(10, "Pivot Length")
+extendSignal = input.bool(false, "Extend Signal")
 
 // ==================
-// Original OrderBlock Code
+// OrderBlock Functions
 // ==================
 
 get_line_style(style) =>
@@ -125,91 +113,45 @@ set_order_blocks(ob_top, ob_btm, ob_left, ob_avg, ext_last, bg_css, border_css, 
                 line.set_xy2(get_lvl, array.get(ob_left, i)+1, array.get(ob_avg, i))
 
 // ==================
-// Original M-W Pattern Code
+// M&W Pattern Functions
 // ==================
+method maintainPivot(array<float> srcArray, float value) =>
+    srcArray.push(value)
+    srcArray.shift()
 
-var zigzagvalues = array.new_float(0)
-var zigzagindexes = array.new_int(0)
-var zigzagdir = array.new_int(0)
+method maintainIndex(array<int> srcArray, int value) =>
+    srcArray.push(value)
+    srcArray.shift()
 
-var doubleTopBottomValues = array.new_float(3)
-var doubleTopBottomIndexes = array.new_int(3)
-var doubleTopBottomDir = array.new_int(3)
+method middleIndex(array<int> srcArray)=>
+    srcArray.get(srcArray.size()-2)
 
-int max_array_size = 10
+method middlePrice(array<float> srcArray)=>
+    srcArray.get(srcArray.size()-2)
 
-pivots(length)=>
-    float ph = ta.highestbars(high, length) == 0 ? high : na
-    float pl = ta.lowestbars(low, length) == 0 ? low : na
-    dir = 0
-    dir := not na(ph) and na(pl) ? 1 : not na(pl) and na(ph) ? -1 : dir[1]
-    [dir, ph, pl]
-
-add_to_array(value, index, dir)=>
-    mult = array.size(zigzagvalues) < 2? 1 : 
-                 (dir*value > dir*array.get(zigzagvalues,1))? 2 : 1
-    array.unshift(zigzagindexes, index)
-    array.unshift(zigzagvalues, value)
-    array.unshift(zigzagdir, dir*mult)
-    if array.size(zigzagindexes) > max_array_size
-        array.pop(zigzagindexes)
-        array.pop(zigzagvalues)
-        array.pop(zigzagdir)
-
-add_to_zigzag(dir, dirchanged, ph, pl, index)=>
-    value = (dir == 1? ph : pl)
-    if array.size(zigzagvalues) == 0 or dirchanged != 0
-        add_to_array(value, index, dir)
-    else if(dir == 1 and value > array.get(zigzagvalues, 0)) or (dir == -1 and value < array.get(zigzagvalues, 0))
-        array.shift(zigzagvalues)
-        array.shift(zigzagindexes)
-        array.shift(zigzagdir)
-        add_to_array(value, index, dir)
-
-zigzag(length)=>
-    [dir, ph, pl] = pivots(length)
-    dirchanged = ta.change(dir)
-    if(not na(ph) or not na(pl))
-        add_to_zigzag(dir, dirchanged, ph, pl, bar_index)
-
-calculate_double_pattern()=>
-    doubleTop = false
-    doubleBottom = false
-    if(array.size(zigzagvalues) >= 4) 
-        index = array.get(zigzagindexes, 1)
-        value = array.get(zigzagvalues, 1)
-        highLow = array.get(zigzagdir, 1)
-        
-        lindex = array.get(zigzagindexes, 2)
-        lvalue = array.get(zigzagvalues, 2)
-        lhighLow = array.get(zigzagdir, 2)
-        
-        llindex = array.get(zigzagindexes, 3)
-        llvalue = array.get(zigzagvalues, 3)
-        llhighLow = array.get(zigzagdir, 3)
-        risk = math.abs(value-llvalue)
-        reward = math.abs(value-lvalue)
-        riskPerReward = risk*100/(risk+reward)
-        
-        if(highLow == 1 and llhighLow == 2 and lhighLow < 0  and riskPerReward < MaxRiskPerReward)
-            doubleTop := true
-        if(highLow == -1 and llhighLow == -2 and lhighLow > 0 and riskPerReward < MaxRiskPerReward)
-            doubleBottom := true
-
-        if(doubleTop or doubleBottom)
-            array.set(doubleTopBottomValues, 0, value)
-            array.set(doubleTopBottomValues, 1, lvalue)
-            array.set(doubleTopBottomValues, 2, llvalue)
-            
-            array.set(doubleTopBottomIndexes, 0, index)
-            array.set(doubleTopBottomIndexes, 1, lindex)
-            array.set(doubleTopBottomIndexes, 2, llindex)
-            
-            array.set(doubleTopBottomDir, 0, highLow)
-            array.set(doubleTopBottomDir, 1, lhighLow)
-            array.set(doubleTopBottomDir, 2, llhighLow)
+// Replace the drawLL function with a new version that creates blocks
+drawLL(start, end, price, neckline, isTop)=>
+    blockColor = isTop ? color.new(color.orange, 70) : color.new(color.purple, 70)
+    borderColor = isTop ? color.orange : color.purple
     
-    [doubleTop, doubleBottom]
+    if isTop
+        // For tops, draw from the highest point to neckline
+        topLevel = math.max(price, neckline)
+        bottomLevel = math.min(price, neckline)
+        patternBox = box.new(start, topLevel, end, bottomLevel,
+             bgcolor=blockColor, 
+             border_color=borderColor,
+             extend=extend.right)
+    else
+        // For bottoms, draw from the lowest point to neckline
+        topLevel = math.max(price, neckline)
+        bottomLevel = math.min(price, neckline)
+        patternBox = box.new(start, topLevel, end, bottomLevel,
+             bgcolor=blockColor, 
+             border_color=borderColor,
+             extend=extend.right)
+    
+    [patternBox]
 
 // ==================
 // Main Logic
@@ -246,55 +188,119 @@ mitigated_bear = remove_mitigated(bear_top, bear_btm, bear_left, bear_avg, targe
 set_order_blocks(bull_top, bull_btm, bull_left, bull_avg, bullExtLast, bgBullCss, bullCss, bullAvgCss)
 set_order_blocks(bear_top, bear_btm, bear_left, bear_avg, bearExtLast, bgBearCss, bearCss, bearAvgCss)
 
-// M-W Pattern Detection
-zigzag(length)
-[doubleTop, doubleBottom] = calculate_double_pattern()
+// M&W Pattern Detection
+var top = array.new_float(3)
+var bottom = array.new_float(3)
 
-// Draw M-W Pattern rectangles
-if barstate.islast
-    var table debugTable = table.new(position.top_right, 2, 3, bgcolor=color.new(color.black, 70))
-    table.cell(debugTable, 0, 0, "Debug Info", bgcolor=color.gray, text_color=color.white)
-    table.cell(debugTable, 0, 1, "Double Top: " + str.tostring(doubleTop), text_color=color.white)
-    table.cell(debugTable, 0, 2, "Double Bottom: " + str.tostring(doubleBottom), text_color=color.white)
+var topIndex = array.new_int(3)
+var bottomIndex = array.new_int(3)
 
-    if(doubleTop or doubleBottom)
-        value = array.get(doubleTopBottomValues, 0)  // Current pivot
-        lvalue = array.get(doubleTopBottomValues, 1) // Neck level
-        llvalue = array.get(doubleTopBottomValues, 2) // Previous pivot
-        index = array.get(doubleTopBottomIndexes, 0)
-        lindex = array.get(doubleTopBottomIndexes, 1)
+ph = ta.pivothigh(pivotLeg, pivotLeg)
+pl = ta.pivotlow(pivotLeg, pivotLeg)
+
+////////////// Top ///////////////////
+if not na(ph)
+    top.maintainPivot(ph)
+    topIndex.maintainIndex(bar_index-pivotLeg)
+
+////////////// Bottom ///////////////////
+if not na(pl)
+    bottom.maintainPivot(pl)
+    bottomIndex.maintainIndex(bar_index-pivotLeg)
+
+inRange = not na(top.first()) and (not na(bottom.first()))
+
+////////////////////////// Top Calculation //////////////////////////////////////////////////////    
+topPrice = 0.0
+isTop = false
+var line topLine = na
+var box topBox = na
+
+if inRange
+    topStart = topIndex.last()
+    topPrice := top.last()
+    
+    if topPrice < top.middlePrice() and topIndex.middleIndex() > bottomIndex.first()
+        topPrice := top.middlePrice()
+        topStart := topIndex.middleIndex()
+
+    max_index = top.indexof(top.max())
+    if topPrice < top.max() and topIndex.get(max_index) > bottomIndex.first()
+        topPrice := top.max()
+        topStart := topIndex.get(max_index)
+    
+    isTop := high >= topPrice and high[1] < topPrice and low < topPrice and bottom.last() > bottom.middlePrice()
+
+    var lastStart = 0
+    var topEnd = 0
+    if isTop and topStart != lastStart
+        lastStart := topStart
+        neckline = bottom.middlePrice()  // This is the neckline of the M pattern
+        topBox := box.new(topStart, math.max(topPrice, neckline), bar_index, math.min(topPrice, neckline),
+             bgcolor=color.new(color.orange, 70), 
+             border_color=color.orange,
+             extend=extend.right)
+        topLine := line.new(topStart, topPrice, bar_index, topPrice, color=color.orange, width=2)
+        alert("Double Top In: "+str.tostring(syminfo.ticker), alert.freq_once_per_bar_close)
+
+if not na(topLine)
+    if ta.crossunder(close, topLine.get_y2()) and extendSignal
+        topLine.set_x2(bar_index)
+        label.new(bar_index, high, style = label.style_label_down, color=color.red)
+        alert("Double Top Breakdown In: "+str.tostring(syminfo.ticker), alert.freq_once_per_bar_close)
+
+    if ta.crossover(close, topLine.get_y2()) and extendSignal
+        topLine.set_x2(bar_index)
+        label.new(bar_index, low, style = label.style_label_up, color=color.green)
+        alert("Double Top Breakout In: "+str.tostring(syminfo.ticker), alert.freq_once_per_bar_close)
+
+// ////////////////////////// Bottom Calculation //////////////////////////////////////////////////////    
+bottomPrice = 0.0
+isBottom = false
+var line bottomLine = na
+var box bottomBox = na
+
+if inRange
+    bottomStart = bottomIndex.last()
+    bottomPrice := bottom.last()
+    
+    if bottomPrice > bottom.middlePrice() and bottomIndex.middleIndex() > topIndex.first()
+        bottomPrice := bottom.middlePrice()
+        bottomStart := bottomIndex.middleIndex()
+    
+    min_index = bottom.indexof(bottom.min())
+    if bottomPrice > bottom.min() and bottomIndex.get(min_index) > topIndex.first()
+        bottomPrice := bottom.min()
+        bottomStart := bottomIndex.get(min_index)
         
-        if doubleTop
-            box.new(index, value, bar_index, lvalue,
-                 bgcolor=color.new(bearishColor, 70),
-                 border_color=bearishColor,
-                 extend=extend.right)
-            label.new(index, value, "M Pattern\nRisk: " + str.tostring(math.round(math.abs(value-llvalue), 2)), 
-                 color=color.new(bearishColor, 70),
-                 textcolor=textColor,
-                 style=label.style_label_down)
-        else
-            box.new(index, value, bar_index, lvalue,
-                 bgcolor=color.new(bullishColor, 70),
-                 border_color=bullishColor,
-                 extend=extend.right)
-            label.new(index, value, "W Pattern\nRisk: " + str.tostring(math.round(math.abs(value-llvalue), 2)), 
-                 color=color.new(bullishColor, 70),
-                 textcolor=textColor,
-                 style=label.style_label_up)
+    isBottom := close <= bottomPrice and close[1] > bottomPrice and high > bottomPrice and top.last() < top.middlePrice()
 
-    // Show zigzag if enabled
-    if showZigzag and array.size(zigzagvalues) > 1
-        for i = 0 to math.min(array.size(zigzagvalues)-2, 9)
-            line.new(array.get(zigzagindexes, i), array.get(zigzagvalues, i),
-                    array.get(zigzagindexes, i+1), array.get(zigzagvalues, i+1),
-                    color=color.blue,
-                    width=2)
+    var bottomEnd = 0
+    var lastStart = 0
+
+    if isBottom and bottomStart != lastStart
+        lastStart := bottomStart
+        neckline = top.middlePrice()  // This is the neckline of the W pattern
+        bottomBox := box.new(bottomStart, math.max(bottomPrice, neckline), bar_index, math.min(bottomPrice, neckline),
+             bgcolor=color.new(color.purple, 70), 
+             border_color=color.purple,
+             extend=extend.right)
+        bottomLine := line.new(bottomStart, bottomPrice, bar_index, bottomPrice, color=color.purple, width=2)
+        alert("Double Bottom In: "+str.tostring(syminfo.ticker), alert.freq_once_per_bar_close)
+
+if not na(bottomLine)
+    if ta.crossunder(close, bottomLine.get_y2()) and extendSignal
+        bottomLine.set_x2(bar_index)
+        label.new(bar_index, high, style = label.style_label_down, color=color.red)
+        alert("Double Bottom Breakdown In: "+str.tostring(syminfo.ticker), alert.freq_once_per_bar_close)
+
+    if ta.crossover(close, bottomLine.get_y2()) and extendSignal
+        bottomLine.set_x2(bar_index)
+        label.new(bar_index, low, style = label.style_label_up, color=color.green)
+        alert("Double Bottom Breakout In: "+str.tostring(syminfo.ticker), alert.freq_once_per_bar_close)
 
 // ==================
 // Alerts
 // ==================
-alertcondition(doubleBottom, "W Pattern Detected", "W pattern formed")
-alertcondition(doubleTop, "M Pattern Detected", "M pattern formed")
 alertcondition(not na(bull_ob), "Bullish OB Detected", "Bullish OrderBlock formed")
 alertcondition(not na(bear_ob), "Bearish OB Detected", "Bearish OrderBlock formed") 
