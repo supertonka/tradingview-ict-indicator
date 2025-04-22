@@ -134,11 +134,13 @@ drawLL(start, end, price, neckline, isTop)=>
     blockColor = isTop ? color.new(color.orange, 70) : color.new(color.purple, 70)
     borderColor = isTop ? color.orange : color.purple
     
+    box patternBox = na
+    
     if isTop
         // For tops, draw from the highest point to neckline
         topLevel = math.max(price, neckline)
         bottomLevel = math.min(price, neckline)
-        patternBox = box.new(start, topLevel, end, bottomLevel,
+        patternBox := box.new(start, topLevel, end, bottomLevel,
              bgcolor=blockColor, 
              border_color=borderColor,
              extend=extend.right)
@@ -146,12 +148,12 @@ drawLL(start, end, price, neckline, isTop)=>
         // For bottoms, draw from the lowest point to neckline
         topLevel = math.max(price, neckline)
         bottomLevel = math.min(price, neckline)
-        patternBox = box.new(start, topLevel, end, bottomLevel,
+        patternBox := box.new(start, topLevel, end, bottomLevel,
              bgcolor=blockColor, 
              border_color=borderColor,
              extend=extend.right)
     
-    [patternBox]
+    patternBox
 
 // ==================
 // Main Logic
