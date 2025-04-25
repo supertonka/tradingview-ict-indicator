@@ -1,308 +1,204 @@
 //@version=6
-
-
-
-indicator("Combined OB & MW Patterns", overlay=true, max_boxes_count=500, max_labels_count=500, max_lines_count=500)
+indicator(title="EMA + M&W Pattern", shorttitle="EMA+M&W", overlay=true)
 
 // ==================
-// Input Parameters
+// EMA Indicator
 // ==================
+len = input.int(9, minval=1, title="Length")
+src = input(close, title="Source")
+offset = input.int(title="Offset", defval=0, minval=-500, maxval=500, display = display.data_window)
+out = ta.ema(src, len)
+plot(out, title="EMA", color=color.blue, offset=offset)
 
-// EMA Parameters
-emaLength = input.int(20, "EMA Length", minval=1)
+// Smoothing MA inputs
+GRP = "Smoothing"
+TT_BB = "Only applies when 'SMA + Bollinger Bands' is selected. Determines the distance between the SMA and the bands."
+maTypeInput = input.string("None", "Type", options = ["None", "SMA", "SMA + Bollinger Bands", "EMA", "SMMA (RMA)", "WMA", "VWMA"], group = GRP, display = display.data_window)
+maLengthInput = input.int(14, "Length", group = GRP, display = display.data_window)
+bbMultInput = input.float(2.0, "BB StdDev", minval = 0.001, maxval = 50, step = 0.5, tooltip = TT_BB, group = GRP, display = display.data_window)
+var enableMA = maTypeInput != "None"
+var isBB = maTypeInput == "SMA + Bollinger Bands"
 
+// Smoothing MA Calculation
+ma(source, length, MAtype) =>
+	switch MAtype
+		"SMA"                   => ta.sma(source, length)
+		"SMA + Bollinger Bands" => ta.sma(source, length)
+		"EMA"                   => ta.ema(source, length)
+		"SMMA (RMA)"            => ta.rma(source, length)
+		"WMA"                   => ta.wma(source, length)
+		"VWMA"                  => ta.vwma(source, length)
 
-
-emaPipDistance = input.float(15.0, "OB Distance from EMA (pips)", minval=1.0)
-
-// ==================
-// OrderBlock Parameters
-// ==================
-obLength = input.int(5, 'Volume Pivot Length', minval = 1)
-bullExtLast = input.int(3, 'Bullish OB ', minval = 1, inline = 'bull')
-bgBullCss = input.color(color.new(#169400, 80), '', inline = 'bull')
-bullCss = input.color(#169400, '', inline = 'bull')
-bullAvgCss = input.color(color.new(#9598a1, 37), '', inline = 'bull')
-bearExtLast = input.int(3, 'Bearish OB', minval = 1, inline = 'bear')
-bgBearCss = input.color(color.new(#ff1100, 80), '', inline = 'bear')
-bearCss = input.color(#ff1100, '', inline = 'bear')
-bearAvgCss = input.color(color.new(#9598a1, 37), '', inline = 'bear')
-
-// ==================
-// M&W Pattern Parameters
-// ==================
-pivotLeg = input.int(10, "Pivot Length")
-extendSignal = input.bool(false, "Extend Signal")
-
-// ==================
-// OrderBlock Functions
-// ==================
-
-get_line_style(style) =>
-    out = switch style
-        '⎯⎯⎯'  => line.style_solid
-        '----' => line.style_dashed
-        '····' => line.style_dotted
-
-get_coordinates(condition, top, btm, ob_val)=>
-    var ob_top  = array.new_float(0)
-    var ob_btm  = array.new_float(0)
-    var ob_avg  = array.new_float(0)
-    var ob_left = array.new_int(0)
-
-    float ob = na
-
-    if condition
-        avg = math.avg(top, btm)
-        
-        array.unshift(ob_top, top)
-        array.unshift(ob_btm, btm)
-        array.unshift(ob_avg, avg)
-        array.unshift(ob_left, time[obLength])
-        
-        ob := ob_val
-    
-    [ob_top, ob_btm, ob_avg, ob_left, ob]
-
-remove_mitigated(ob_top, ob_btm, ob_left, ob_avg, target, bull)=>
-    mitigated = false
-    target_array = bull ? ob_btm : ob_top
-
-    for element in target_array
-        idx = array.indexof(target_array, element)
-
-        if (bull ? target < element : target > element)
-            mitigated := true
-
-            array.remove(ob_top, idx)
-            array.remove(ob_btm, idx)
-            array.remove(ob_avg, idx)
-            array.remove(ob_left, idx)
-    
-    mitigated
-
-set_order_blocks(ob_top, ob_btm, ob_left, ob_avg, ext_last, bg_css, border_css, lvl_css)=>
-    var ob_box = array.new_box(0)
-    var ob_lvl = array.new_line(0)
-
-    if barstate.isfirst
-        for i = 0 to ext_last-1
-            array.unshift(ob_box, box.new(na,na,na,na
-              , xloc = xloc.bar_time
-              , extend= extend.right
-              , bgcolor = bg_css
-              , border_color = color.new(border_css, 70)))
-
-            array.unshift(ob_lvl, line.new(na,na,na,na
-              , xloc = xloc.bar_time
-              , extend = extend.right
-              , color = lvl_css
-              , style = get_line_style('⎯⎯⎯')
-              , width = 1))
-
-    if barstate.islast
-        if array.size(ob_top) > 0
-            for i = 0 to math.min(ext_last-1, array.size(ob_top)-1)
-                get_box = array.get(ob_box, i)
-                get_lvl = array.get(ob_lvl, i)
-
-                box.set_lefttop(get_box, array.get(ob_left, i), array.get(ob_top, i))
-                box.set_rightbottom(get_box, array.get(ob_left, i), array.get(ob_btm, i))
-
-                line.set_xy1(get_lvl, array.get(ob_left, i), array.get(ob_avg, i))
-                line.set_xy2(get_lvl, array.get(ob_left, i)+1, array.get(ob_avg, i))
+// Smoothing MA plots
+smoothingMA = enableMA ? ma(out, maLengthInput, maTypeInput) : na
+smoothingStDev = isBB ? ta.stdev(out, maLengthInput) * bbMultInput : na
+plot(smoothingMA, "EMA-based MA", color=color.yellow, display = enableMA ? display.all : display.none, editable = enableMA)
+bbUpperBand = plot(smoothingMA + smoothingStDev, title = "Upper Bollinger Band", color=color.green, display = isBB ? display.all : display.none, editable = isBB)
+bbLowerBand = plot(smoothingMA - smoothingStDev, title = "Lower Bollinger Band", color=color.green, display = isBB ? display.all : display.none, editable = isBB)
+fill(bbUpperBand, bbLowerBand, color= isBB ? color.new(color.green, 90) : na, title="Bollinger Bands Background Fill", display = isBB ? display.all : display.none, editable = isBB) 
 
 // ==================
-// M&W Pattern Functions
+// M&W Pattern Indicator
 // ==================
-method maintainPivot(array<float> srcArray, float value) =>
-    srcArray.push(value)
-    srcArray.shift()
+x = input.int(21, "Time Horizon", tooltip = "Controls the look-back and time horizon of the patterns, a larger value will detect longer term patterns")
+sig = input.bool(false, "Show Signal Labels Only", tooltip = "When enabled, only the labels showing the second pivot of the double top/bottom will show")
+green = input.color(#00ffbb, "Bullish Color", group = "Appearance", tooltip="Color for bullish trend")
+red = input.color(#ff1100, "Bearish Color", group = "Appearance", tooltip="Color for bearish trend")
 
-method maintainIndex(array<int> srcArray, int value) =>
-    srcArray.push(value)
-    srcArray.shift()
+type store
+    int   dir
+    int   n
+    float y
 
-method middleIndex(array<int> srcArray)=>
-    srcArray.get(srcArray.size()-2)
+limit = ta.sma(math.abs(open-close), 100)
 
-method middlePrice(array<float> srcArray)=>
-    srcArray.get(srcArray.size()-2)
+ph = ta.pivothigh(close, x,x)
+pl = ta.pivotlow(close, x,x)
 
-// Replace the drawLL function with a new version that creates blocks
-drawLL(start, end, price, neckline, isTop)=>
-    blockColor = isTop ? color.new(color.orange, 70) : color.new(color.purple, 70)
-    borderColor = isTop ? color.orange : color.purple
-    
-    box patternBox = na
-    
-    if isTop
-        // For tops, draw from the highest point to neckline
-        topLevel = math.max(price, neckline)
-        bottomLevel = math.min(price, neckline)
-        patternBox := box.new(start, topLevel, end, bottomLevel,
-             bgcolor=blockColor, 
-             border_color=borderColor,
-             extend=extend.right)
-    else
-        // For bottoms, draw from the lowest point to neckline
-        topLevel = math.max(price, neckline)
-        bottomLevel = math.min(price, neckline)
-        patternBox := box.new(start, topLevel, end, bottomLevel,
-             bgcolor=blockColor, 
-             border_color=borderColor,
-             extend=extend.right)
-    
-    patternBox
+var pph = float(na)
+var ppl = float(na)
+var cpph = float(na)
+var cppl = float(na)
+var ln = int(na)
+var hn = int(na)
+var lpt = 0
+var awaiting_DBC = 0
+var awaiting_DTC = 0
 
-// ==================
-// Main Logic
-// ==================
+potential = false
+var store[] sequence = array.new<store>()
+var t = array.new_line()
+var t1 = array.new_line()
+var tthresh = 0.0
+var bthresh = 0.0
 
-// Calculate EMA
-emaValue = ta.ema(close, emaLength)
-plot(emaValue, "EMA", color=color.blue, linewidth=2)
-
-// OrderBlock Detection
-var os = 0
-var target_bull = 0.
-var target_bear = 0.
-
-upper = ta.highest(obLength)
-lower = ta.lowest(obLength)
-
-target_bull := ta.lowest(close, obLength)
-target_bear := ta.highest(close, obLength)
-
-os := high[obLength] > upper ? 0 : low[obLength] < lower ? 1 : os[1]
-
-phv = ta.pivothigh(volume, obLength, obLength)
-
-// Get bullish/bearish order blocks coordinates 
-[bull_top, bull_btm, bull_avg, bull_left, bull_ob] = get_coordinates(not na(phv) and os == 1, hl2[obLength], low[obLength], low[obLength])
-[bear_top, bear_btm, bear_avg, bear_left, bear_ob] = get_coordinates(not na(phv) and os == 0, high[obLength], hl2[obLength], high[obLength])
-
-// Remove mitigated order blocks
-mitigated_bull = remove_mitigated(bull_top, bull_btm, bull_left, bull_avg, target_bull, true)
-mitigated_bear = remove_mitigated(bear_top, bear_btm, bear_left, bear_avg, target_bear, false)
-
-// Display order blocks
-set_order_blocks(bull_top, bull_btm, bull_left, bull_avg, bullExtLast, bgBullCss, bullCss, bullAvgCss)
-set_order_blocks(bear_top, bear_btm, bear_left, bear_avg, bearExtLast, bgBearCss, bearCss, bearAvgCss)
-
-// M&W Pattern Detection
-var top = array.new_float(3)
-var bottom = array.new_float(3)
-
-var topIndex = array.new_int(3)
-var bottomIndex = array.new_int(3)
-
-ph = ta.pivothigh(pivotLeg, pivotLeg)
-pl = ta.pivotlow(pivotLeg, pivotLeg)
-
-////////////// Top ///////////////////
 if not na(ph)
-    top.maintainPivot(ph)
-    topIndex.maintainIndex(bar_index-pivotLeg)
-
-////////////// Bottom ///////////////////
-if not na(pl)
-    bottom.maintainPivot(pl)
-    bottomIndex.maintainIndex(bar_index-pivotLeg)
-
-inRange = not na(top.first()) and (not na(bottom.first()))
-
-////////////////////////// Top Calculation //////////////////////////////////////////////////////    
-topPrice = 0.0
-isTop = false
-var line topLine = na
-var box topBox = na
-
-if inRange
-    topStart = topIndex.last()
-    topPrice := top.last()
-    
-    if topPrice < top.middlePrice() and topIndex.middleIndex() > bottomIndex.first()
-        topPrice := top.middlePrice()
-        topStart := topIndex.middleIndex()
-
-    max_index = top.indexof(top.max())
-    if topPrice < top.max() and topIndex.get(max_index) > bottomIndex.first()
-        topPrice := top.max()
-        topStart := topIndex.get(max_index)
-    
-    isTop := high >= topPrice and high[1] < topPrice and low < topPrice and bottom.last() > bottom.middlePrice()
-
-    var lastStart = 0
-    var topEnd = 0
-    if isTop and topStart != lastStart
-        lastStart := topStart
-        neckline = bottom.middlePrice()  // This is the neckline of the M pattern
-        topBox := box.new(topStart, math.max(topPrice, neckline), bar_index, math.min(topPrice, neckline),
-             bgcolor=color.new(color.orange, 70), 
-             border_color=color.orange,
-             extend=extend.right)
-        topLine := line.new(topStart, topPrice, bar_index, topPrice, color=color.orange, width=2)
-        alert("Double Top In: "+str.tostring(syminfo.ticker), alert.freq_once_per_bar_close)
-
-if not na(topLine)
-    if ta.crossunder(close, topLine.get_y2()) and extendSignal
-        topLine.set_x2(bar_index)
-        label.new(bar_index, high, style = label.style_label_down, color=color.red)
-        alert("Double Top Breakdown In: "+str.tostring(syminfo.ticker), alert.freq_once_per_bar_close)
-
-    if ta.crossover(close, topLine.get_y2()) and extendSignal
-        topLine.set_x2(bar_index)
-        label.new(bar_index, low, style = label.style_label_up, color=color.green)
-        alert("Double Top Breakout In: "+str.tostring(syminfo.ticker), alert.freq_once_per_bar_close)
-
-// ////////////////////////// Bottom Calculation //////////////////////////////////////////////////////    
-bottomPrice = 0.0
-isBottom = false
-var line bottomLine = na
-var box bottomBox = na
-
-if inRange
-    bottomStart = bottomIndex.last()
-    bottomPrice := bottom.last()
-    
-    if bottomPrice > bottom.middlePrice() and bottomIndex.middleIndex() > topIndex.first()
-        bottomPrice := bottom.middlePrice()
-        bottomStart := bottomIndex.middleIndex()
-    
-    min_index = bottom.indexof(bottom.min())
-    if bottomPrice > bottom.min() and bottomIndex.get(min_index) > topIndex.first()
-        bottomPrice := bottom.min()
-        bottomStart := bottomIndex.get(min_index)
+    lpt := 1
+    if awaiting_DBC == 1
+        awaiting_DBC := 0
+        if not sig
+            label.new(bar_index, bthresh, style = label.style_diamond, size = size.tiny, color = color.orange)
+    if awaiting_DTC == 1
+        awaiting_DTC := 0
+        if not sig
+            label.new(bar_index, tthresh, style = label.style_diamond, size = size.tiny, color = color.orange)
+    if na(ppl)
+        hn := bar_index-x
+        cpph := ph
+        sequence.unshift(store.new(1, hn, close[bar_index-hn]))
+        pph := ph
         
-    isBottom := close <= bottomPrice and close[1] > bottomPrice and high > bottomPrice and top.last() < top.middlePrice()
+    else if ph > ppl and (lpt == lpt[1] ? ph > pph : true)
+        hn := bar_index-x
+        cppl := ppl
+        sequence.unshift(store.new(-1, ln, close[bar_index-ln]))
+        pph := ph
+        
 
-    var bottomEnd = 0
-    var lastStart = 0
+if not na(pl)
+    lpt := -1
+    if awaiting_DBC == 1
+        awaiting_DBC := 0
+        if not sig
+            label.new(bar_index, bthresh, style = label.style_diamond, size = size.tiny, color = color.orange)
+    if awaiting_DTC == 1
+        awaiting_DTC := 0
+        if not sig
+            label.new(bar_index, tthresh, style = label.style_diamond, size = size.tiny, color = color.orange)
+    if na(pph)
+        ln := bar_index-x
+        cppl := pl
+        sequence.unshift(store.new(-1, ln, close[bar_index-ln]))
+        ppl := pl
+        
+    else if pl < pph and (lpt == lpt[1] ? pl < ppl : true)
+        ln := bar_index-x
+        cpph := pph
+        sequence.unshift(store.new(1, hn, close[bar_index-hn]))
+        ppl := pl
 
-    if isBottom and bottomStart != lastStart
-        lastStart := bottomStart
-        neckline = top.middlePrice()  // This is the neckline of the W pattern
-        bottomBox := box.new(bottomStart, math.max(bottomPrice, neckline), bar_index, math.min(bottomPrice, neckline),
-             bgcolor=color.new(color.purple, 70), 
-             border_color=color.purple,
-             extend=extend.right)
-        bottomLine := line.new(bottomStart, bottomPrice, bar_index, bottomPrice, color=color.purple, width=2)
-        alert("Double Bottom In: "+str.tostring(syminfo.ticker), alert.freq_once_per_bar_close)
+while sequence.size() > 3
+    sequence.pop()
 
-if not na(bottomLine)
-    if ta.crossunder(close, bottomLine.get_y2()) and extendSignal
-        bottomLine.set_x2(bar_index)
-        label.new(bar_index, high, style = label.style_label_down, color=color.red)
-        alert("Double Bottom Breakdown In: "+str.tostring(syminfo.ticker), alert.freq_once_per_bar_close)
+if sequence.size() > 2
+    if not na(ph) and sequence.first().dir == -1 and sequence.get(1).dir == 1 and math.abs(close[x] - sequence.get(1).y) < limit and lpt[1] != 1
+        trigger = sequence.get(0).y
+        label.new(bar_index-x, close[x], style = label.style_label_down, size = size.large, color = red)
+        if not sig
+            t1.unshift(line.new(sequence.get(0).n, sequence.get(0).y, sequence.get(0).n + 1, sequence.get(0).y, xloc = xloc.bar_index, color = red, width = 2, style = line.style_dashed))
+        awaiting_DTC := 1
+        tthresh := sequence.get(0).y
+        if not sig
+            l0 = line.new(sequence.get(1).n, sequence.get(1).y, sequence.get(2).n, sequence.get(2).y, xloc = xloc.bar_index, color = red, width = 2)
+            l1 = line.new(sequence.get(1).n, sequence.get(1).y, sequence.get(0).n, sequence.get(0).y, xloc = xloc.bar_index, color = red, width = 2)
+            l2 = line.new(sequence.get(0).n, sequence.get(0).y, bar_index-x, ph, xloc = xloc.bar_index, color = red, width = 2)
+            linefill.new(l0, l1, color.new(red, 70))
+            linefill.new(t1.first(), l2, color.new(red, 70))
 
-    if ta.crossover(close, bottomLine.get_y2()) and extendSignal
-        bottomLine.set_x2(bar_index)
-        label.new(bar_index, low, style = label.style_label_up, color=color.green)
-        alert("Double Bottom Breakout In: "+str.tostring(syminfo.ticker), alert.freq_once_per_bar_close)
+    if not na(pl) and sequence.first().dir == 1 and sequence.get(1).dir == -1 and math.abs(close[x] - sequence.get(1).y) < limit and lpt[1] != -1
+        trigger = sequence.get(0).y
+        label.new(bar_index-x, close[x], style = label.style_label_up, size = size.large, color = green)
+        if not sig
+            t.unshift(line.new(sequence.get(0).n, sequence.get(0).y, sequence.get(0).n + 1, sequence.get(0).y, xloc = xloc.bar_index, color = green, width = 2, style = line.style_dashed))
+        awaiting_DBC := 1
+        bthresh := sequence.get(0).y
+        if not sig
+            l0 = line.new(sequence.get(1).n, sequence.get(1).y, sequence.get(2).n, sequence.get(2).y, xloc = xloc.bar_index, color = green, width = 2)
+            l1 = line.new(sequence.get(1).n, sequence.get(1).y, sequence.get(0).n, sequence.get(0).y, xloc = xloc.bar_index, color = green, width = 2)
+            l2 = line.new(sequence.get(0).n, sequence.get(0).y, bar_index-x, pl, xloc = xloc.bar_index, color = green, width = 2)
+            linefill.new(l0, l1, color.new(green, 70))
+            linefill.new(t.first(), l2, color.new(green, 70))
 
-// ==================
-// Alerts
-// ==================
-alertcondition(not na(bull_ob), "Bullish OB Detected", "Bullish OrderBlock formed")
-alertcondition(not na(bear_ob), "Bearish OB Detected", "Bearish OrderBlock formed") 
+DTC = 0
+DBC = 0
+
+if awaiting_DTC == 1
+    if close < tthresh
+        awaiting_DTC := 0
+        tthresh := 0
+        if not sig
+            t1.first().set_x2(bar_index)
+        DTC := 1
+
+if awaiting_DBC == 1
+    if close > bthresh
+        awaiting_DBC := 0
+        awaiting_DBC := 0
+        if not sig
+            t.first().set_x2(bar_index)
+        DBC := 1
+
+if t.size() > 0
+    qt = t.size()
+
+    for i = qt - 1 to 0
+        if i < t.size()
+            cL = t.get(i)
+            yL = cL.get_x1()
+            vert = cL.get_y1()
+
+            if awaiting_DBC == 1
+                cL.set_x2(bar_index + 1)
+
+            else
+                t.pop()
+
+if t1.size() > 0
+    qt = t.size()
+
+    for i = qt - 1 to 0
+        if i < t1.size()
+            cL = t1.get(i)
+            yL = cL.get_x1()
+            vert = cL.get_y1()
+
+            if awaiting_DTC == 1
+                cL.set_x2(bar_index + 1)
+
+            else
+                t1.pop()
+
+alertcondition(not na(pl) and sequence.first().dir == 1 and sequence.get(1).dir == -1 and math.abs(close[x] - sequence.get(1).y) < limit and lpt[1] != -1, "Potential Double Bottom")
+alertcondition(not na(ph) and sequence.first().dir == -1 and sequence.get(1).dir == 1 and math.abs(close[x] - sequence.get(1).y) < limit and lpt[1] != 1, "Potential Double Top")
+alertcondition(DBC == 1, "Double Bottom Confirmed")
+alertcondition(DTC == 1, "Double Top Confirmed")
