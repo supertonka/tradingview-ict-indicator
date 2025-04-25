@@ -2,20 +2,21 @@
 indicator(title="EMA + M&W Pattern", shorttitle="EMA+M&W", overlay=true)
 
 // ==================
-// EMA Indicator
+// EMA Indicator Settings
 // ==================
-len = input.int(9, minval=1, title="Length")
-src = input(close, title="Source")
-offset = input.int(title="Offset", defval=0, minval=-500, maxval=500, display = display.data_window)
+EMA_GRP = "EMA Settings"
+len = input.int(9, minval=1, title="Length", group=EMA_GRP)
+src = input(close, title="Source", group=EMA_GRP)
+offset = input.int(title="Offset", defval=0, minval=-500, maxval=500, display = display.data_window, group=EMA_GRP)
 out = ta.ema(src, len)
 plot(out, title="EMA", color=color.blue, offset=offset)
 
 // Smoothing MA inputs
-GRP = "Smoothing"
+SMOOTH_GRP = "EMA Smoothing Settings"
 TT_BB = "Only applies when 'SMA + Bollinger Bands' is selected. Determines the distance between the SMA and the bands."
-maTypeInput = input.string("None", "Type", options = ["None", "SMA", "SMA + Bollinger Bands", "EMA", "SMMA (RMA)", "WMA", "VWMA"], group = GRP, display = display.data_window)
-maLengthInput = input.int(14, "Length", group = GRP, display = display.data_window)
-bbMultInput = input.float(2.0, "BB StdDev", minval = 0.001, maxval = 50, step = 0.5, tooltip = TT_BB, group = GRP, display = display.data_window)
+maTypeInput = input.string("None", "Type", options = ["None", "SMA", "SMA + Bollinger Bands", "EMA", "SMMA (RMA)", "WMA", "VWMA"], group = SMOOTH_GRP, display = display.data_window)
+maLengthInput = input.int(14, "Length", group = SMOOTH_GRP, display = display.data_window)
+bbMultInput = input.float(2.0, "BB StdDev", minval = 0.001, maxval = 50, step = 0.5, tooltip = TT_BB, group = SMOOTH_GRP, display = display.data_window)
 var enableMA = maTypeInput != "None"
 var isBB = maTypeInput == "SMA + Bollinger Bands"
 
@@ -38,12 +39,15 @@ bbLowerBand = plot(smoothingMA - smoothingStDev, title = "Lower Bollinger Band",
 fill(bbUpperBand, bbLowerBand, color= isBB ? color.new(color.green, 90) : na, title="Bollinger Bands Background Fill", display = isBB ? display.all : display.none, editable = isBB) 
 
 // ==================
-// M&W Pattern Indicator
+// M&W Pattern Settings
 // ==================
-x = input.int(21, "Time Horizon", tooltip = "Controls the look-back and time horizon of the patterns, a larger value will detect longer term patterns")
-sig = input.bool(false, "Show Signal Labels Only", tooltip = "When enabled, only the labels showing the second pivot of the double top/bottom will show")
-green = input.color(#00ffbb, "Bullish Color", group = "Appearance", tooltip="Color for bullish trend")
-red = input.color(#ff1100, "Bearish Color", group = "Appearance", tooltip="Color for bearish trend")
+MW_GRP = "M&W Pattern Settings"
+x = input.int(21, "Time Horizon", tooltip = "Controls the look-back and time horizon of the patterns, a larger value will detect longer term patterns", group=MW_GRP)
+sig = input.bool(false, "Show Signal Labels Only", tooltip = "When enabled, only the labels showing the second pivot of the double top/bottom will show", group=MW_GRP)
+
+MW_COLORS = "M&W Pattern Colors"
+green = input.color(#00ffbb, "Bullish Color", group = MW_COLORS, tooltip="Color for bullish trend")
+red = input.color(#ff1100, "Bearish Color", group = MW_COLORS, tooltip="Color for bearish trend")
 
 type store
     int   dir
