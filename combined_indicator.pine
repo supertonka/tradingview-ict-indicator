@@ -1,5 +1,5 @@
 //@version=6
-indicator(title="EMA + M&W Pattern", shorttitle="EMA+M&W", overlay=true)
+indicator(title="EMA + M&W Pattern + OrderBlock", shorttitle="EMA+M&W+OB", overlay=true)
 
 // ==================
 // EMA Indicator Settings
@@ -37,6 +37,120 @@ plot(smoothingMA, "EMA-based MA", color=color.yellow, display = enableMA ? displ
 bbUpperBand = plot(smoothingMA + smoothingStDev, title = "Upper Bollinger Band", color=color.green, display = isBB ? display.all : display.none, editable = isBB)
 bbLowerBand = plot(smoothingMA - smoothingStDev, title = "Lower Bollinger Band", color=color.green, display = isBB ? display.all : display.none, editable = isBB)
 fill(bbUpperBand, bbLowerBand, color= isBB ? color.new(color.green, 90) : na, title="Bollinger Bands Background Fill", display = isBB ? display.all : display.none, editable = isBB) 
+
+// ==================
+// OrderBlock Settings
+// ==================
+OB_GRP = "OrderBlock Settings"
+obLength = input.int(5, 'Volume Pivot Length', minval = 1, group=OB_GRP)
+bullExtLast = input.int(3, 'Bullish OB ', minval = 1, inline = 'bull', group=OB_GRP)
+bgBullCss = input.color(color.new(#169400, 80), '', inline = 'bull', group=OB_GRP)
+bullCss = input.color(#169400, '', inline = 'bull', group=OB_GRP)
+bullAvgCss = input.color(color.new(#9598a1, 37), '', inline = 'bull', group=OB_GRP)
+bearExtLast = input.int(3, 'Bearish OB', minval = 1, inline = 'bear', group=OB_GRP)
+bgBearCss = input.color(color.new(#ff1100, 80), '', inline = 'bear', group=OB_GRP)
+bearCss = input.color(#ff1100, '', inline = 'bear', group=OB_GRP)
+bearAvgCss = input.color(color.new(#9598a1, 37), '', inline = 'bear', group=OB_GRP)
+
+get_line_style(style) =>
+    out = switch style
+        '⎯⎯⎯'  => line.style_solid
+        '----' => line.style_dashed
+        '····' => line.style_dotted
+
+get_coordinates(condition, top, btm, ob_val)=>
+    var ob_top  = array.new_float(0)
+    var ob_btm  = array.new_float(0)
+    var ob_avg  = array.new_float(0)
+    var ob_left = array.new_int(0)
+
+    float ob = na
+
+    if condition
+        avg = math.avg(top, btm)
+        
+        array.unshift(ob_top, top)
+        array.unshift(ob_btm, btm)
+        array.unshift(ob_avg, avg)
+        array.unshift(ob_left, time[obLength])
+        
+        ob := ob_val
+    
+    [ob_top, ob_btm, ob_avg, ob_left, ob]
+
+remove_mitigated(ob_top, ob_btm, ob_left, ob_avg, target, bull)=>
+    mitigated = false
+    target_array = bull ? ob_btm : ob_top
+
+    for element in target_array
+        idx = array.indexof(target_array, element)
+
+        if (bull ? target < element : target > element)
+            mitigated := true
+
+            array.remove(ob_top, idx)
+            array.remove(ob_btm, idx)
+            array.remove(ob_avg, idx)
+            array.remove(ob_left, idx)
+    
+    mitigated
+
+set_order_blocks(ob_top, ob_btm, ob_left, ob_avg, ext_last, bg_css, border_css, lvl_css)=>
+    var ob_box = array.new_box(0)
+    var ob_lvl = array.new_line(0)
+
+    if barstate.isfirst
+        for i = 0 to ext_last-1
+            array.unshift(ob_box, box.new(na,na,na,na
+              , xloc = xloc.bar_time
+              , extend= extend.right
+              , bgcolor = bg_css
+              , border_color = color.new(border_css, 70)))
+
+            array.unshift(ob_lvl, line.new(na,na,na,na
+              , xloc = xloc.bar_time
+              , extend = extend.right
+              , color = lvl_css
+              , style = get_line_style('⎯⎯⎯')
+              , width = 1))
+
+    if barstate.islast
+        if array.size(ob_top) > 0
+            for i = 0 to math.min(ext_last-1, array.size(ob_top)-1)
+                get_box = array.get(ob_box, i)
+                get_lvl = array.get(ob_lvl, i)
+
+                box.set_lefttop(get_box, array.get(ob_left, i), array.get(ob_top, i))
+                box.set_rightbottom(get_box, array.get(ob_left, i), array.get(ob_btm, i))
+
+                line.set_xy1(get_lvl, array.get(ob_left, i), array.get(ob_avg, i))
+                line.set_xy2(get_lvl, array.get(ob_left, i)+1, array.get(ob_avg, i))
+
+var os = 0
+var target_bull = 0.
+var target_bear = 0.
+
+upper = ta.highest(obLength)
+lower = ta.lowest(obLength)
+
+target_bull := ta.lowest(close, obLength)
+target_bear := ta.highest(close, obLength)
+
+os := high[obLength] > upper ? 0 : low[obLength] < lower ? 1 : os[1]
+
+phv = ta.pivothigh(volume, obLength, obLength)
+
+[bull_top, bull_btm, bull_avg, bull_left, bull_ob] = get_coordinates(not na(phv) and os == 1, hl2[obLength], low[obLength], low[obLength])
+[bear_top, bear_btm, bear_avg, bear_left, bear_ob] = get_coordinates(not na(phv) and os == 0, high[obLength], hl2[obLength], high[obLength])
+
+mitigated_bull = remove_mitigated(bull_top, bull_btm, bull_left, bull_avg, target_bull, true)
+mitigated_bear = remove_mitigated(bear_top, bear_btm, bear_left, bear_avg, target_bear, false)
+
+set_order_blocks(bull_top, bull_btm, bull_left, bull_avg, bullExtLast, bgBullCss, bullCss, bullAvgCss)
+set_order_blocks(bear_top, bear_btm, bear_left, bear_avg, bearExtLast, bgBearCss, bearCss, bearAvgCss)
+
+alertcondition(not na(bull_ob), "Bullish OB Detected", "Bullish OrderBlock formed")
+alertcondition(not na(bear_ob), "Bearish OB Detected", "Bearish OrderBlock formed")
 
 // ==================
 // M&W Pattern Settings
