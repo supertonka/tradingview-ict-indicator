@@ -43,7 +43,7 @@ fill(bbUpperBand, bbLowerBand, color= isBB ? color.new(color.green, 90) : na, ti
 // ==================
 OB_GRP = "OrderBlock Settings"
 colors = input.string(title = "Color Scheme", defval="DARK", options=["DARK", "BRIGHT"], group=OB_GRP)
-periods = input.int(5, "Relevant Periods to identify OB", group=OB_GRP)
+periods = input.int(3, "Relevant Periods to identify OB", group=OB_GRP)
 threshold = input.float(0.0, "Min. Percent move to identify OB", step = 0.1, group=OB_GRP)
 usewicks = input.bool(false, "Use whole range [High/Low] for OB marking?", group=OB_GRP)
 showbull = input.bool(true, "Show latest Bullish Channel?", group=OB_GRP)
@@ -83,45 +83,46 @@ OB_bear_high = OB_bear? high[ob_period] : na
 OB_bear_low = OB_bear? usewicks? low[ob_period] : open[ob_period] : na
 OB_bear_avg = (OB_bear_low + OB_bear_high)/2
 
-// Plotting
-plotshape(OB_bull, title="Bullish OB", style = shape.triangleup, color = bullcolor, textcolor = bullcolor, size = size.tiny, location = location.belowbar, offset = -ob_period, text = "Bullish OB")
-bull1 = plot(OB_bull_high, title="Bullish OB High", style = plot.style_linebr, color = bullcolor, offset = -ob_period, linewidth = 3)
-bull2 = plot(OB_bull_low, title="Bullish OB Low", style = plot.style_linebr, color = bullcolor, offset = -ob_period, linewidth = 3)
-fill(bull1, bull2, color=color.new(bullcolor, 0), title = "Bullish OB fill")
-plotshape(OB_bull_avg, title="Bullish OB Average", style = shape.cross, color = bullcolor, size = size.normal, location = location.absolute, offset = -ob_period)
+// LuxAlgo-style OB implementation
+// OB type
+type OB
+    float top
+    float btm
+    int   loc
+    bool  is_bear
 
-plotshape(OB_bear, title="Bearish OB", style = shape.triangledown, color = bearcolor, textcolor = bearcolor, size = size.tiny, location = location.abovebar, offset = -ob_period, text = "Bearish OB")
-bear1 = plot(OB_bear_low, title="Bearish OB Low", style = plot.style_linebr, color = bearcolor, offset = -ob_period, linewidth = 3)
-bear2 = plot(OB_bear_high, title="Bearish OB High", style = plot.style_linebr, color = bearcolor, offset = -ob_period, linewidth = 3)
-fill(bear1, bear2, color=color.new(bearcolor, 0), title = "Bearish OB fill")
-plotshape(OB_bear_avg, title="Bearish OB Average", style = shape.cross, color = bearcolor, size = size.normal, location = location.absolute, offset = -ob_period)
+// OB arrays
+var OB[] bullish_obs = array.new<OB>()
+var OB[] bearish_obs = array.new<OB>()
 
-var line linebull1 = na
-var line linebull2 = na
-var line linebull3 = na
-var line linebear1 = na
-var line linebear2 = na
-var line linebear3 = na
+// Detect and store OBs
+if OB_bull
+    array.unshift(bullish_obs, OB.new(OB_bull_high, OB_bull_low, bar_index - ob_period, false))
+    if array.size(bullish_obs) > 10
+        array.pop(bullish_obs)
+if OB_bear
+    array.unshift(bearish_obs, OB.new(OB_bear_high, OB_bear_low, bar_index - ob_period, true))
+    if array.size(bearish_obs) > 10
+        array.pop(bearish_obs)
 
-if OB_bull and showbull
-    line.delete(linebull1)
-    linebull1 := line.new(x1 = bar_index, y1 = OB_bull_avg, x2 = bar_index - 1, y2 = OB_bull_avg, extend = extend.left, color = bullcolor, style = line.style_solid, width = 1)
-    
-    line.delete(linebull2)
-    linebull2 := line.new(x1 = bar_index, y1 = OB_bull_high, x2 = bar_index - 1, y2 = OB_bull_high, extend = extend.left, color = bullcolor, style = line.style_dashed, width = 1)
-    
-    line.delete(linebull3)
-    linebull3 := line.new(x1 = bar_index, y1 = OB_bull_low, x2 = bar_index - 1, y2 = OB_bull_low, extend = extend.left, color = bullcolor, style = line.style_dashed, width = 1)
+// Delete all boxes and lines at the start of each bar
+if barstate.isfirst or barstate.isnew
+    for bx in box.all
+        bx.delete()
+    for ln in line.all
+        ln.delete()
 
-if OB_bear and showbear
-    line.delete(linebear1)
-    linebear1 := line.new(x1 = bar_index, y1 = OB_bear_avg, x2 = bar_index - 1, y2 = OB_bear_avg, extend = extend.left, color = bearcolor, style = line.style_solid, width = 1)
-    
-    line.delete(linebear2)
-    linebear2 := line.new(x1 = bar_index, y1 = OB_bear_high, x2 = bar_index - 1, y2 = OB_bear_high, extend = extend.left, color = bearcolor, style = line.style_dashed, width = 1)
-    
-    line.delete(linebear3)
-    linebear3 := line.new(x1 = bar_index, y1 = OB_bear_low, x2 = bar_index - 1, y2 = OB_bear_low, extend = extend.left, color = bearcolor, style = line.style_dashed, width = 1)
+// Draw all OBs (LuxAlgo style)
+if array.size(bullish_obs) > 0
+    for i = 0 to array.size(bullish_obs)-1
+        ob = array.get(bullish_obs, i)
+        box.new(ob.loc, ob.top, bar_index, ob.btm, xloc=xloc.bar_index, bgcolor=color.new(color.blue, 80), border_color=color.new(color.blue, 0))
+        label.new(ob.loc, ob.top, "BULLISH OB", color=color.new(color.blue, 0), textcolor=color.white, style=label.style_label_down, yloc=yloc.price, xloc=xloc.bar_index)
+if array.size(bearish_obs) > 0
+    for i = 0 to array.size(bearish_obs)-1
+        ob = array.get(bearish_obs, i)
+        box.new(ob.loc, ob.top, bar_index, ob.btm, xloc=xloc.bar_index, bgcolor=color.new(color.orange, 80), border_color=color.new(color.orange, 0))
+        label.new(ob.loc, ob.top, "BEARISH OB", color=color.new(color.orange, 0), textcolor=color.white, style=label.style_label_up, yloc=yloc.price, xloc=xloc.bar_index)
 
 // Alerts for Order Blocks Detection
 alertcondition(OB_bull, title='New Bullish OB detected', message='New Bullish OB detected - This is NOT a BUY signal!')
