@@ -42,115 +42,166 @@ fill(bbUpperBand, bbLowerBand, color= isBB ? color.new(color.green, 90) : na, ti
 // OrderBlock Settings
 // ==================
 OB_GRP = "OrderBlock Settings"
-obLength = input.int(5, 'Volume Pivot Length', minval = 1, group=OB_GRP)
-bullExtLast = input.int(3, 'Bullish OB ', minval = 1, inline = 'bull', group=OB_GRP)
-bgBullCss = input.color(color.new(#169400, 80), '', inline = 'bull', group=OB_GRP)
-bullCss = input.color(#169400, '', inline = 'bull', group=OB_GRP)
-bullAvgCss = input.color(color.new(#9598a1, 37), '', inline = 'bull', group=OB_GRP)
-bearExtLast = input.int(3, 'Bearish OB', minval = 1, inline = 'bear', group=OB_GRP)
-bgBearCss = input.color(color.new(#ff1100, 80), '', inline = 'bear', group=OB_GRP)
-bearCss = input.color(#ff1100, '', inline = 'bear', group=OB_GRP)
-bearAvgCss = input.color(color.new(#9598a1, 37), '', inline = 'bear', group=OB_GRP)
+colors = input.string(title = "Color Scheme", defval="DARK", options=["DARK", "BRIGHT"], group=OB_GRP)
+periods = input.int(5, "Relevant Periods to identify OB", group=OB_GRP)
+threshold = input.float(0.0, "Min. Percent move to identify OB", step = 0.1, group=OB_GRP)
+usewicks = input.bool(false, "Use whole range [High/Low] for OB marking?", group=OB_GRP)
+showbull = input.bool(true, "Show latest Bullish Channel?", group=OB_GRP)
+showbear = input.bool(true, "Show latest Bearish Channel?", group=OB_GRP)
+showdocu = input.bool(false, "Show Label for documentation tooltip?", group=OB_GRP)
+info_pan = input.bool(false, "Show Latest OB Panel?", group=OB_GRP)
 
-get_line_style(style) =>
-    out = switch style
-        '⎯⎯⎯'  => line.style_solid
-        '----' => line.style_dashed
-        '····' => line.style_dotted
+ob_period = periods + 1
+absmove = ((math.abs(close[ob_period] - close[1]))/close[ob_period]) * 100
+relmove = absmove >= threshold
 
-get_coordinates(condition, top, btm, ob_val)=>
-    var ob_top  = array.new_float(0)
-    var ob_btm  = array.new_float(0)
-    var ob_avg  = array.new_float(0)
-    var ob_left = array.new_int(0)
+// Color Scheme
+bullcolor = colors == "DARK"? color.white : color.green
+bearcolor = colors == "DARK"? color.blue : color.red
 
-    float ob = na
+// Bullish Order Block Identification
+bullishOB = close[ob_period] < open[ob_period]
 
-    if condition
-        avg = math.avg(top, btm)
-        
-        array.unshift(ob_top, top)
-        array.unshift(ob_btm, btm)
-        array.unshift(ob_avg, avg)
-        array.unshift(ob_left, time[obLength])
-        
-        ob := ob_val
+int upcandles = 0
+for i = 1 to periods
+    upcandles := upcandles + (close[i] > open[i]? 1 : 0)
+
+OB_bull = bullishOB and (upcandles == (periods)) and relmove
+OB_bull_high = OB_bull? usewicks? high[ob_period] : open[ob_period] : na
+OB_bull_low = OB_bull? low[ob_period] : na
+OB_bull_avg = (OB_bull_high + OB_bull_low)/2
+
+// Bearish Order Block Identification
+bearishOB = close[ob_period] > open[ob_period]
+
+int downcandles = 0
+for i = 1 to periods
+    downcandles := downcandles + (close[i] < open[i]? 1 : 0)
+
+OB_bear = bearishOB and (downcandles == (periods)) and relmove
+OB_bear_high = OB_bear? high[ob_period] : na
+OB_bear_low = OB_bear? usewicks? low[ob_period] : open[ob_period] : na
+OB_bear_avg = (OB_bear_low + OB_bear_high)/2
+
+// Plotting
+plotshape(OB_bull, title="Bullish OB", style = shape.triangleup, color = bullcolor, textcolor = bullcolor, size = size.tiny, location = location.belowbar, offset = -ob_period, text = "Bullish OB")
+bull1 = plot(OB_bull_high, title="Bullish OB High", style = plot.style_linebr, color = bullcolor, offset = -ob_period, linewidth = 3)
+bull2 = plot(OB_bull_low, title="Bullish OB Low", style = plot.style_linebr, color = bullcolor, offset = -ob_period, linewidth = 3)
+fill(bull1, bull2, color=color.new(bullcolor, 0), title = "Bullish OB fill")
+plotshape(OB_bull_avg, title="Bullish OB Average", style = shape.cross, color = bullcolor, size = size.normal, location = location.absolute, offset = -ob_period)
+
+plotshape(OB_bear, title="Bearish OB", style = shape.triangledown, color = bearcolor, textcolor = bearcolor, size = size.tiny, location = location.abovebar, offset = -ob_period, text = "Bearish OB")
+bear1 = plot(OB_bear_low, title="Bearish OB Low", style = plot.style_linebr, color = bearcolor, offset = -ob_period, linewidth = 3)
+bear2 = plot(OB_bear_high, title="Bearish OB High", style = plot.style_linebr, color = bearcolor, offset = -ob_period, linewidth = 3)
+fill(bear1, bear2, color=color.new(bearcolor, 0), title = "Bearish OB fill")
+plotshape(OB_bear_avg, title="Bearish OB Average", style = shape.cross, color = bearcolor, size = size.normal, location = location.absolute, offset = -ob_period)
+
+var line linebull1 = na
+var line linebull2 = na
+var line linebull3 = na
+var line linebear1 = na
+var line linebear2 = na
+var line linebear3 = na
+
+if OB_bull and showbull
+    line.delete(linebull1)
+    linebull1 := line.new(x1 = bar_index, y1 = OB_bull_avg, x2 = bar_index - 1, y2 = OB_bull_avg, extend = extend.left, color = bullcolor, style = line.style_solid, width = 1)
     
-    [ob_top, ob_btm, ob_avg, ob_left, ob]
-
-remove_mitigated(ob_top, ob_btm, ob_left, ob_avg, target, bull)=>
-    mitigated = false
-    target_array = bull ? ob_btm : ob_top
-
-    for element in target_array
-        idx = array.indexof(target_array, element)
-
-        if (bull ? target < element : target > element)
-            mitigated := true
-
-            array.remove(ob_top, idx)
-            array.remove(ob_btm, idx)
-            array.remove(ob_avg, idx)
-            array.remove(ob_left, idx)
+    line.delete(linebull2)
+    linebull2 := line.new(x1 = bar_index, y1 = OB_bull_high, x2 = bar_index - 1, y2 = OB_bull_high, extend = extend.left, color = bullcolor, style = line.style_dashed, width = 1)
     
-    mitigated
+    line.delete(linebull3)
+    linebull3 := line.new(x1 = bar_index, y1 = OB_bull_low, x2 = bar_index - 1, y2 = OB_bull_low, extend = extend.left, color = bullcolor, style = line.style_dashed, width = 1)
 
-set_order_blocks(ob_top, ob_btm, ob_left, ob_avg, ext_last, bg_css, border_css, lvl_css)=>
-    var ob_box = array.new_box(0)
-    var ob_lvl = array.new_line(0)
+if OB_bear and showbear
+    line.delete(linebear1)
+    linebear1 := line.new(x1 = bar_index, y1 = OB_bear_avg, x2 = bar_index - 1, y2 = OB_bear_avg, extend = extend.left, color = bearcolor, style = line.style_solid, width = 1)
+    
+    line.delete(linebear2)
+    linebear2 := line.new(x1 = bar_index, y1 = OB_bear_high, x2 = bar_index - 1, y2 = OB_bear_high, extend = extend.left, color = bearcolor, style = line.style_dashed, width = 1)
+    
+    line.delete(linebear3)
+    linebear3 := line.new(x1 = bar_index, y1 = OB_bear_low, x2 = bar_index - 1, y2 = OB_bear_low, extend = extend.left, color = bearcolor, style = line.style_dashed, width = 1)
 
-    if barstate.isfirst
-        for i = 0 to ext_last-1
-            array.unshift(ob_box, box.new(na,na,na,na
-              , xloc = xloc.bar_time
-              , extend= extend.right
-              , bgcolor = bg_css
-              , border_color = color.new(border_css, 70)))
+// Alerts for Order Blocks Detection
+alertcondition(OB_bull, title='New Bullish OB detected', message='New Bullish OB detected - This is NOT a BUY signal!')
+alertcondition(OB_bear, title='New Bearish OB detected', message='New Bearish OB detected - This is NOT a SELL signal!')
 
-            array.unshift(ob_lvl, line.new(na,na,na,na
-              , xloc = xloc.bar_time
-              , extend = extend.right
-              , color = lvl_css
-              , style = get_line_style('⎯⎯⎯')
-              , width = 1))
+// Print latest Order Blocks in Data Window
+var latest_bull_high = 0.0
+var latest_bull_avg = 0.0
+var latest_bull_low = 0.0
+var latest_bear_high = 0.0
+var latest_bear_avg = 0.0
+var latest_bear_low = 0.0
 
-    if barstate.islast
-        if array.size(ob_top) > 0
-            for i = 0 to math.min(ext_last-1, array.size(ob_top)-1)
-                get_box = array.get(ob_box, i)
-                get_lvl = array.get(ob_lvl, i)
+// Assign latest values to variables
+if OB_bull_high > 0
+    latest_bull_high := OB_bull_high
 
-                box.set_lefttop(get_box, array.get(ob_left, i), array.get(ob_top, i))
-                box.set_rightbottom(get_box, array.get(ob_left, i), array.get(ob_btm, i))
+if OB_bull_avg > 0
+    latest_bull_avg := OB_bull_avg
 
-                line.set_xy1(get_lvl, array.get(ob_left, i), array.get(ob_avg, i))
-                line.set_xy2(get_lvl, array.get(ob_left, i)+1, array.get(ob_avg, i))
+if OB_bull_low > 0
+    latest_bull_low := OB_bull_low
 
-var os = 0
-var target_bull = 0.
-var target_bear = 0.
+if OB_bear_high > 0
+    latest_bear_high := OB_bear_high
+    
+if OB_bear_avg > 0
+    latest_bear_avg := OB_bear_avg
+    
+if OB_bear_low > 0
+    latest_bear_low := OB_bear_low
 
-upper = ta.highest(obLength)
-lower = ta.lowest(obLength)
+// Plot invisible characters to be able to show the values in the Data Window
+plotchar(latest_bull_high, char = ' ', location = location.abovebar, color = color.new(#777777, 100), size = size.tiny, title = "Latest Bull High")
+plotchar(latest_bull_avg, char = ' ', location = location.abovebar, color = color.new(#777777, 100), size = size.tiny, title = "Latest Bull Avg")
+plotchar(latest_bull_low, char = ' ', location = location.abovebar, color = color.new(#777777, 100), size = size.tiny, title = "Latest Bull Low")
+plotchar(latest_bear_high, char = ' ', location = location.abovebar, color = color.new(#777777, 100), size = size.tiny, title = "Latest Bear High")
+plotchar(latest_bear_avg, char = ' ', location = location.abovebar, color = color.new(#777777, 100), size = size.tiny, title = "Latest Bear Avg")
+plotchar(latest_bear_low, char = ' ', location = location.abovebar, color = color.new(#777777, 100), size = size.tiny, title = "Latest Bear Low")
 
-target_bull := ta.lowest(close, obLength)
-target_bear := ta.highest(close, obLength)
+// InfoPanel for latest Order Blocks
+draw_InfoPanel(_text, _x, _y, font_size)=>
+    var label la_panel = na
+    label.delete(la_panel)
+    la_panel := label.new(
+         x=_x, y=_y, 
+         text=_text, xloc=xloc.bar_time, yloc=yloc.price, 
+         color=color.new(#383838, 5), style=label.style_label_left, textcolor=color.white, size=font_size)
 
-os := high[obLength] > upper ? 0 : low[obLength] < lower ? 1 : os[1]
+info_panel_x = time_close + math.round(ta.change(time) * 100)
+info_panel_y = close
 
-phv = ta.pivothigh(volume, obLength, obLength)
+title = "LATEST ORDER BLOCKS"
+row0 = "-----------------------------------------------------"
+row1 = ' Bullish - High: ' + str.tostring(latest_bull_high, '#.##')
+row2 = ' Bullish - Avg: ' + str.tostring(latest_bull_avg, '#.##')
+row3 = ' Bullish - Low: ' + str.tostring(latest_bull_low, '#.##')
+row4 = "-----------------------------------------------------"
+row5 = ' Bearish - High: ' + str.tostring(latest_bear_high, '#.##')
+row6 = ' Bearish - Avg: ' + str.tostring(latest_bear_avg, '#.##')
+row7 = ' Bearish - Low: ' + str.tostring(latest_bear_low, '#.##')
 
-[bull_top, bull_btm, bull_avg, bull_left, bull_ob] = get_coordinates(not na(phv) and os == 1, hl2[obLength], low[obLength], low[obLength])
-[bear_top, bear_btm, bear_avg, bear_left, bear_ob] = get_coordinates(not na(phv) and os == 0, high[obLength], hl2[obLength], high[obLength])
+panel_text = '\n' + title + '\n' + row0 + '\n' + row1 + '\n' + row2 + '\n' + row3 + '\n' + row4 + '\n\n' + row5 + '\n' + row6 + '\n' + row7 + '\n'
 
-mitigated_bull = remove_mitigated(bull_top, bull_btm, bull_left, bull_avg, target_bull, true)
-mitigated_bear = remove_mitigated(bear_top, bear_btm, bear_left, bear_avg, target_bear, false)
+if info_pan
+    draw_InfoPanel(panel_text, info_panel_x, info_panel_y, size.normal)
 
-set_order_blocks(bull_top, bull_btm, bull_left, bull_avg, bullExtLast, bgBullCss, bullCss, bullAvgCss)
-set_order_blocks(bear_top, bear_btm, bear_left, bear_avg, bearExtLast, bgBearCss, bearCss, bearAvgCss)
+// === Label for Documentation/Tooltip ===
+chper = time - time[1]
+chper := ta.change(chper) > 0 ? chper[1] : chper
 
-alertcondition(not na(bull_ob), "Bullish OB Detected", "Bullish OrderBlock formed")
-alertcondition(not na(bear_ob), "Bearish OB Detected", "Bearish OrderBlock formed")
+// === Tooltip text ===
+var vartooltip = "Indicator to help identifying instituational Order Blocks. Often these blocks signal the beginning of a strong move, but there is a high probability, that these prices will be revisited at a later point in time again and therefore are interesting levels to place limit orders. \nBullish Order block is the last down candle before a sequence of up candles. \nBearish Order Block is the last up candle before a sequence of down candles. \nIn the settings the number of required sequential candles can be adjusted. \nFurthermore a %-threshold can be entered which the sequential move needs to achieve in order to validate a relevant Order Block. \nChannels for the last Bullish/Bearish Block can be shown/hidden."
+
+// === Print Label ===
+var label l_docu = na
+label.delete(l_docu)
+
+if showdocu
+    l_docu := label.new(x = time + chper * 35, y = close, text = "DOCU OB", color=color.gray, textcolor=color.white, style=label.style_label_center, xloc = xloc.bar_time, yloc=yloc.price, size=size.tiny, textalign = text.align_left, tooltip = vartooltip)
 
 // ==================
 // M&W Pattern Settings
