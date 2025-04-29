@@ -173,7 +173,7 @@ if barstate.islast
 // M&W Pattern Settings
 // ==================
 MW_GRP = "M&W Pattern Settings"
-x = input.int(21, "Time Horizon", tooltip = "Controls the look-back and time horizon of the patterns, a larger value will detect longer term patterns", group=MW_GRP)
+x = input.int(7, "Time Horizon", tooltip = "Controls the look-back and time horizon of the patterns, a larger value will detect longer term patterns", group=MW_GRP)
 sig = input.bool(false, "Show Signal Labels Only", tooltip = "When enabled, only the labels showing the second pivot of the double top/bottom will show", group=MW_GRP)
 
 MW_COLORS = "M&W Pattern Colors"
@@ -337,3 +337,24 @@ alertcondition(not na(pl) and sequence.first().dir == 1 and sequence.get(1).dir 
 alertcondition(not na(ph) and sequence.first().dir == -1 and sequence.get(1).dir == 1 and math.abs(close[x] - sequence.get(1).y) < limit and lpt[1] != 1, "Potential Double Top")
 alertcondition(DBC == 1, "Double Bottom Confirmed")
 alertcondition(DTC == 1, "Double Top Confirmed")
+
+// Draw rectangles for M&W patterns at the first pivot
+var box[] mw_boxes = array.new<box>()
+// Clean up old boxes each bar
+if barstate.isfirst or barstate.isnew
+    if array.size(mw_boxes) > 0
+        for b = 0 to array.size(mw_boxes)-1
+            box.delete(array.get(mw_boxes, b))
+    array.clear(mw_boxes)
+
+// Draw for M (double top)
+if sequence.size() > 2 and not na(ph) and sequence.first().dir == -1 and sequence.get(1).dir == 1 and math.abs(close[x] - sequence.get(1).y) < limit and lpt[1] != 1
+    m_bar = sequence.get(1).n
+    m_price = sequence.get(1).y
+    array.push(mw_boxes, box.new(m_bar, m_price, bar_index, m_price, xloc=xloc.bar_index, bgcolor=color.new(red, 80), border_color=color.new(red, 0)))
+
+// Draw for W (double bottom)
+if sequence.size() > 2 and not na(pl) and sequence.first().dir == 1 and sequence.get(1).dir == -1 and math.abs(close[x] - sequence.get(1).y) < limit and lpt[1] != -1
+    w_bar = sequence.get(1).n
+    w_price = sequence.get(1).y
+    array.push(mw_boxes, box.new(w_bar, w_price, bar_index, w_price, xloc=xloc.bar_index, bgcolor=color.new(green, 80), border_color=color.new(green, 0)))
