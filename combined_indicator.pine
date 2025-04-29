@@ -3,6 +3,7 @@ indicator(title="EMA + M&W Pattern + OrderBlock", shorttitle="EMA+M&W+OB", overl
 
 // ==================
 // EMA Indicator Settings
+// Monir fixes, Minor Changes
 // ==================
 EMA_GRP = "EMA Settings"
 len = input.int(9, minval=1, title="Length", group=EMA_GRP)
