@@ -40,9 +40,18 @@ var bthresh = 0.0
 var int m_pivot_bar = na
 var float m_pivot_high = na
 var float m_pivot_low = na
+var int m_pivot_time = na
 var int w_pivot_bar = na
 var float w_pivot_high = na
 var float w_pivot_low = na
+var int w_pivot_time = na
+
+var bool show_m_pivot = false
+var float show_m_high = na
+
+// Move plotshape and plot to global scope (outside any if blocks)
+plotshape(show_m_pivot, location=location.abovebar, color=color.red, style=shape.triangledown, size=size.small, title="M Pivot Bar")
+plot(show_m_high, color=color.red, style=plot.style_circles, linewidth=2, title="M Pivot High")
 
 if not na(ph)
     lpt := 1
@@ -121,6 +130,9 @@ if sequence.size() > 2
             linefill.new(l0, l1, color.new(green, 70))
             linefill.new(t.first(), l2, color.new(green, 70))
 
+else
+    show_m_pivot := false
+
 DTC = 0
 DBC = 0
 
@@ -189,21 +201,24 @@ if sequence.size() > 2 and not na(ph) and sequence.first().dir == -1 and sequenc
     m_bar = sequence.get(1).n
     m_offset = bar_index - m_bar
     if m_offset >= 0 and m_offset < bar_index
-        m_pivot_bar := m_bar
+        m_pivot_time := time[m_offset]
         m_pivot_high := high[m_offset]
         m_pivot_low := low[m_offset]
+        show_m_pivot := bar_index == m_bar
+        show_m_high := m_pivot_high
         label.new(m_bar, m_pivot_high, "M", color=color.red, style=label.style_label_down)
         if barstate.islast
-            box.new(m_pivot_bar, m_pivot_high, bar_index, m_pivot_low, xloc=xloc.bar_index, bgcolor=color.new(red, 80), border_color=color.new(red, 0))
+            box.new(m_pivot_time, m_pivot_high, time, m_pivot_low, xloc=xloc.bar_time, bgcolor=color.new(red, 80), border_color=color.new(red, 0), extend=extend.right)
+        label.new(x=m_bar, y=m_pivot_high, text="M\nbar:"+str.tostring(m_bar)+"\nhigh:"+str.tostring(m_pivot_high)+"\noffset:"+str.tostring(m_offset), color=color.red, style=label.style_label_down, size=size.small)
 
 // Draw for W (double bottom)
 if sequence.size() > 2 and not na(pl) and sequence.first().dir == 1 and sequence.get(1).dir == -1 and math.abs(close[x] - sequence.get(1).y) < limit and lpt[1] != -1
     w_bar = sequence.get(1).n
     w_offset = bar_index - w_bar
     if w_offset >= 0 and w_offset < bar_index
-        w_pivot_bar := w_bar
+        w_pivot_time := time[w_offset]
         w_pivot_high := high[w_offset]
         w_pivot_low := low[w_offset]
         label.new(w_bar, w_pivot_low, "W", color=color.green, style=label.style_label_up)
         if barstate.islast
-            box.new(w_pivot_bar, w_pivot_high, bar_index, w_pivot_low, xloc=xloc.bar_index, bgcolor=color.new(green, 80), border_color=color.new(green, 0))
+            box.new(w_pivot_time, w_pivot_high, time, w_pivot_low, xloc=xloc.bar_time, bgcolor=color.new(green, 80), border_color=color.new(green, 0), extend=extend.right)
