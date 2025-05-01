@@ -106,7 +106,7 @@ if sequence.size() > 2
         block_height = math.min(m_pivot_range, threshold)
         m_pivot_distance = bar_index - x - sequence.get(1).n
         label.new(m_bar, high[bar_index - m_bar], text="", style=label.style_label_down, size=size.large, color=color.red)
-        for i = 0 to m_pivot_distance-7
+        for i = 0 to m_pivot_distance
             line.new(x1=m_bar + i, y1=high[bar_index - m_bar], x2=m_bar + i, y2=high[bar_index - m_bar] - block_height, xloc=xloc.bar_index, color=color.new(color.red, 40), width=60)
 
     if not na(pl) and sequence.first().dir == 1 and sequence.get(1).dir == -1 and math.abs(close[x] - sequence.get(1).y) < limit and lpt[1] != -1
@@ -129,7 +129,7 @@ if sequence.size() > 2
         block_height = math.min(w_pivot_range, threshold)
         w_pivot_distance = bar_index - x - sequence.get(1).n
         label.new(w_bar, low[bar_index - w_bar], text="", style=label.style_label_up, size=size.large, color=color.green)
-        for i = 0 to w_pivot_distance-7
+        for i = 0 to w_pivot_distance
             line.new(x1=w_bar + i, y1=low[bar_index - w_bar], x2=w_bar + i, y2=low[bar_index - w_bar] + block_height, xloc=xloc.bar_index, color=color.new(color.green, 40), width=60)
 
 DTC = 0
