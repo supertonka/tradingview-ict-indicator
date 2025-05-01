@@ -99,6 +99,9 @@ if sequence.size() > 2
             l2 = line.new(sequence.get(0).n, sequence.get(0).y, bar_index-x, ph, xloc = xloc.bar_index, color = red, width = 2)
             linefill.new(l0, l1, color.new(red, 70))
             linefill.new(t1.first(), l2, color.new(red, 70))
+        m_bar = sequence.get(1).n
+        m_pivot_high = ph
+        line.new(m_bar, m_pivot_high, m_bar + 5, m_pivot_high, xloc=xloc.bar_index, color=color.black, width=5)
 
     if not na(pl) and sequence.first().dir == 1 and sequence.get(1).dir == -1 and math.abs(close[x] - sequence.get(1).y) < limit and lpt[1] != -1
         trigger = sequence.get(0).y
