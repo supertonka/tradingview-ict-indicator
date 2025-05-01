@@ -88,7 +88,6 @@ while sequence.size() > 3
 if sequence.size() > 2
     if not na(ph) and sequence.first().dir == -1 and sequence.get(1).dir == 1 and math.abs(close[x] - sequence.get(1).y) < limit and lpt[1] != 1
         trigger = sequence.get(0).y
-        label.new(bar_index-x, close[x], style = label.style_label_down, size = size.large, color = red)
         if not sig
             t1.unshift(line.new(sequence.get(0).n, sequence.get(0).y, sequence.get(0).n + 1, sequence.get(0).y, xloc = xloc.bar_index, color = red, width = 2, style = line.style_dashed))
         awaiting_DTC := 1
@@ -101,12 +100,12 @@ if sequence.size() > 2
             linefill.new(t1.first(), l2, color.new(red, 70))
         m_bar = sequence.get(1).n
         m_pivot_high = ph
+        label.new(m_bar, high[bar_index - m_bar], style=label.style_label_down, size=size.large, color=color.red)
         for i = 0 to 40
             line.new(x1=m_bar + i, y1=high[bar_index - m_bar], x2=m_bar + i, y2=low[bar_index - m_bar], xloc=xloc.bar_index, color=color.new(color.red, 40), width=60)
 
     if not na(pl) and sequence.first().dir == 1 and sequence.get(1).dir == -1 and math.abs(close[x] - sequence.get(1).y) < limit and lpt[1] != -1
         trigger = sequence.get(0).y
-        label.new(bar_index-x, close[x], style = label.style_label_up, size = size.large, color = green)
         if not sig
             t.unshift(line.new(sequence.get(0).n, sequence.get(0).y, sequence.get(0).n + 1, sequence.get(0).y, xloc = xloc.bar_index, color = green, width = 2, style = line.style_dashed))
         awaiting_DBC := 1
@@ -119,6 +118,7 @@ if sequence.size() > 2
             linefill.new(t.first(), l2, color.new(green, 70))
         w_bar = sequence.get(1).n
         w_pivot_low = pl
+        label.new(w_bar, low[bar_index - w_bar], style=label.style_label_up, size=size.large, color=color.green)
         for i = 0 to 40
             line.new(x1=w_bar + i, y1=high[bar_index - w_bar], x2=w_bar + i, y2=low[bar_index - w_bar], xloc=xloc.bar_index, color=color.new(color.green, 40), width=60)
 
