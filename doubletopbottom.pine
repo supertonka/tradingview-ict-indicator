@@ -100,9 +100,15 @@ if sequence.size() > 2
             linefill.new(t1.first(), l2, color.new(red, 70))
         m_bar = sequence.get(1).n
         m_pivot_high = ph
-        label.new(m_bar, high[bar_index - m_bar], style=label.style_label_down, size=size.large, color=color.red)
+        m_pivot_range = high[bar_index - m_bar] - low[bar_index - m_bar]
+        label.new(m_bar, high[bar_index - m_bar], text="Range: " + str.tostring(m_pivot_range), style=label.style_label_down, size=size.large, color=color.red)
         for i = 0 to 40
-            line.new(x1=m_bar + i, y1=high[bar_index - m_bar], x2=m_bar + i, y2=low[bar_index - m_bar], xloc=xloc.bar_index, color=color.new(color.red, 40), width=60)
+            if m_pivot_range > 600
+                // Draw from high to 75% down the candle
+                line.new(x1=m_bar + i, y1=high[bar_index - m_bar], x2=m_bar + i, y2=high[bar_index - m_bar] - m_pivot_range * 0.75, xloc=xloc.bar_index, color=color.new(color.red, 40), width=60)
+            else
+                // Draw full range
+                line.new(x1=m_bar + i, y1=high[bar_index - m_bar], x2=m_bar + i, y2=low[bar_index - m_bar], xloc=xloc.bar_index, color=color.new(color.red, 40), width=60)
 
     if not na(pl) and sequence.first().dir == 1 and sequence.get(1).dir == -1 and math.abs(close[x] - sequence.get(1).y) < limit and lpt[1] != -1
         trigger = sequence.get(0).y
@@ -118,9 +124,15 @@ if sequence.size() > 2
             linefill.new(t.first(), l2, color.new(green, 70))
         w_bar = sequence.get(1).n
         w_pivot_low = pl
-        label.new(w_bar, low[bar_index - w_bar], style=label.style_label_up, size=size.large, color=color.green)
+        w_pivot_range = high[bar_index - w_bar] - low[bar_index - w_bar]
+        label.new(w_bar, low[bar_index - w_bar], text="Range: " + str.tostring(w_pivot_range), style=label.style_label_up, size=size.large, color=color.green)
         for i = 0 to 40
-            line.new(x1=w_bar + i, y1=high[bar_index - w_bar], x2=w_bar + i, y2=low[bar_index - w_bar], xloc=xloc.bar_index, color=color.new(color.green, 40), width=60)
+            if w_pivot_range > 600
+                // Draw from low to 75% up the candle
+                line.new(x1=w_bar + i, y1=low[bar_index - w_bar], x2=w_bar + i, y2=low[bar_index - w_bar] + w_pivot_range * 0.75, xloc=xloc.bar_index, color=color.new(color.green, 40), width=60)
+            else
+                // Draw full range
+                line.new(x1=w_bar + i, y1=high[bar_index - w_bar], x2=w_bar + i, y2=low[bar_index - w_bar], xloc=xloc.bar_index, color=color.new(color.green, 40), width=60)
 
 DTC = 0
 DBC = 0
