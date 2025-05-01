@@ -101,11 +101,11 @@ if sequence.size() > 2
         m_bar = sequence.get(1).n
         m_pivot_high = ph
         m_pivot_range = high[bar_index - m_bar] - low[bar_index - m_bar]
-        percent = 0.01
+        percent = 0.005
         threshold = high[bar_index - m_bar] * percent
         block_height = math.min(m_pivot_range, threshold)
         m_pivot_distance = bar_index - x - sequence.get(1).n
-        label.new(m_bar, high[bar_index - m_bar], text="Range: " + str.tostring(m_pivot_range) + "\nPivot Distance: " + str.tostring(m_pivot_distance) + " bars", style=label.style_label_down, size=size.large, color=color.red)
+        label.new(m_bar, high[bar_index - m_bar], text="", style=label.style_label_down, size=size.large, color=color.red)
         for i = 0 to m_pivot_distance-7
             line.new(x1=m_bar + i, y1=high[bar_index - m_bar], x2=m_bar + i, y2=high[bar_index - m_bar] - block_height, xloc=xloc.bar_index, color=color.new(color.red, 40), width=60)
 
@@ -124,11 +124,11 @@ if sequence.size() > 2
         w_bar = sequence.get(1).n
         w_pivot_low = pl
         w_pivot_range = high[bar_index - w_bar] - low[bar_index - w_bar]
-        percent = 0.01
+        percent = 0.005
         threshold = low[bar_index - w_bar] * percent
         block_height = math.min(w_pivot_range, threshold)
         w_pivot_distance = bar_index - x - sequence.get(1).n
-        label.new(w_bar, low[bar_index - w_bar], text="Range: " + str.tostring(w_pivot_range) + "\nPivot Distance: " + str.tostring(w_pivot_distance) + " bars", style=label.style_label_up, size=size.large, color=color.green)
+        label.new(w_bar, low[bar_index - w_bar], text="", style=label.style_label_up, size=size.large, color=color.green)
         for i = 0 to w_pivot_distance-7
             line.new(x1=w_bar + i, y1=low[bar_index - w_bar], x2=w_bar + i, y2=low[bar_index - w_bar] + block_height, xloc=xloc.bar_index, color=color.new(color.green, 40), width=60)
 
