@@ -354,7 +354,3 @@ if t1.size() > 0
                 t1.pop()
 
 // alertcondition(not na(pl) and sequence.first().dir == 1 and sequence.get(1).dir == -1 and math.abs(close[x] - sequence.get(1).y) < limit and lpt[1] != -1, "Potential Double Bottom")
-// alertcondition(not na(ph) and sequence.first().dir == -1 and sequence.get(1).dir == 1 and math.abs(close[x] - sequence.get(1).y) < limit and lpt[1] != 1, "Potential Double Top")
-// alertcondition(DBC == 1, "Double Bottom Confirmed")
-// alertcondition(DTC == 1, "Double Top Confirmed")
-//;;
