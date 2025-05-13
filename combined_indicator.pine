@@ -170,7 +170,7 @@ if barstate.islast
             get_ob.display(bearCss, bearBreakCss)
 
 // ==================
-// M&W Pattern Settings
+// M&W Indicator Settings
 // ==================
 MW_GRP = "M&W Pattern Settings"
 x = input.int(7, "Time Horizon", tooltip = "Controls the look-back and time horizon of the patterns, a larger value will detect longer term patterns", group=MW_GRP)
@@ -353,4 +353,3 @@ if t1.size() > 0
             else
                 t1.pop()
 
-// alertcondition(not na(pl) and sequence.first().dir == 1 and sequence.get(1).dir == -1 and math.abs(close[x] - sequence.get(1).y) < limit and lpt[1] != -1, "Potential Double Bottom")
