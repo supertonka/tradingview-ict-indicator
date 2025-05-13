@@ -1,5 +1,5 @@
 //@version=5
-indicator("Combined Indicator", overlay=true)
+indicator("M&W, OrderBlock and EMA", overlay=true)
 
 // ==================
 // EMA Indicator Settings
