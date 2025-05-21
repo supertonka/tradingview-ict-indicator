@@ -1,0 +1,72 @@
+//@version=5
+indicator("Flexible M/W Pattern Detector", overlay=true)
+
+// === User Inputs ===
+pivotLen = input.int(3, title="Pivot Sensitivity (bars left/right)")
+tolerance = input.float(0.02, title="Pivot Height Tolerance (%)", minval=0.001)
+
+// === Pivot Detection ===
+pivotHigh = ta.pivothigh(high, pivotLen, pivotLen)
+pivotLow  = ta.pivotlow(low, pivotLen, pivotLen)
+
+var float[] phVals = array.new_float()
+var int[] phIdxs = array.new_int()
+var float[] plVals = array.new_float()
+var int[] plIdxs = array.new_int()
+
+if not na(pivotHigh)
+    array.unshift(phVals, pivotHigh)
+    array.unshift(phIdxs, bar_index - pivotLen)
+if not na(pivotLow)
+    array.unshift(plVals, pivotLow)
+    array.unshift(plIdxs, bar_index - pivotLen)
+
+// Only keep last 10 pivots for efficiency
+if array.size(phVals) > 10
+    array.pop(phVals)
+    array.pop(phIdxs)
+if array.size(plVals) > 10
+    array.pop(plVals)
+    array.pop(plIdxs)
+
+// === M Pattern Detection (3 pivot highs) ===
+var label[] mLabels = array.new<label>()
+if array.size(phVals) >= 3
+    float h1 = array.get(phVals, 2)
+    float h2 = array.get(phVals, 1)
+    float h3 = array.get(phVals, 0)
+    int i1 = array.get(phIdxs, 2)
+    int i2 = array.get(phIdxs, 1)
+    int i3 = array.get(phIdxs, 0)
+    float maxH = math.max(h1, math.max(h2, h3))
+    float minH = math.min(h1, math.min(h2, h3))
+    float tol = maxH * tolerance
+    // Check if all highs are within tolerance
+    if (math.abs(h1 - maxH) <= tol and math.abs(h2 - maxH) <= tol and math.abs(h3 - maxH) <= tol)
+        // Draw lines and label
+        line.new(i1, h1, i2, h2, color=color.red, width=2)
+        line.new(i2, h2, i3, h3, color=color.red, width=2)
+        array.unshift(mLabels, label.new(i2, h2, "M", color=color.red, style=label.style_label_down, textcolor=color.white))
+        if array.size(mLabels) > 5
+            label.delete(array.pop(mLabels))
+
+// === W Pattern Detection (3 pivot lows) ===
+var label[] wLabels = array.new<label>()
+if array.size(plVals) >= 3
+    float l1 = array.get(plVals, 2)
+    float l2 = array.get(plVals, 1)
+    float l3 = array.get(plVals, 0)
+    int j1 = array.get(plIdxs, 2)
+    int j2 = array.get(plIdxs, 1)
+    int j3 = array.get(plIdxs, 0)
+    float minL = math.min(l1, math.min(l2, l3))
+    float maxL = math.max(l1, math.max(l2, l3))
+    float tolL = minL * tolerance
+    // Check if all lows are within tolerance
+    if (math.abs(l1 - minL) <= tolL and math.abs(l2 - minL) <= tolL and math.abs(l3 - minL) <= tolL)
+        // Draw lines and label
+        line.new(j1, l1, j2, l2, color=color.green, width=2)
+        line.new(j2, l2, j3, l3, color=color.green, width=2)
+        array.unshift(wLabels, label.new(j2, l2, "W", color=color.green, style=label.style_label_up, textcolor=color.white))
+        if array.size(wLabels) > 5
+            label.delete(array.pop(wLabels))
