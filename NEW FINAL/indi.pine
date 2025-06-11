@@ -1,0 +1,269 @@
+//@version=5
+indicator("M and W Pattern Detector - Enhanced", overlay=true, max_lines_count=500, max_labels_count=500)
+
+// Input parameters
+swing_length = input.int(4, "Swing Detection Length", minval=2, maxval=50)
+min_pattern_bars = input.int(10, "Minimum Pattern Width (bars)", minval=5, maxval=100)
+neckline_break_threshold = input.float(0.1, "Neckline Break Threshold %", minval=0.01, maxval=5.0) / 100
+swing_offset = input.int(-4, "Swing Bar Offset (negative = left, positive = right)", minval=-20, maxval=20)
+
+// New filtering parameters - adjusted for more selective filtering
+min_swing_strength = input.float(2.0, "Minimum Swing Strength %", minval=0.1, maxval=10.0) / 100
+atr_multiplier = input.float(2.0, "ATR Multiplier for Significance", minval=0.5, maxval=5.0)
+volume_filter = input.bool(false, "Use Volume Filter (optional)")
+min_volume_ratio = input.float(1.2, "Minimum Volume Ratio", minval=0.5, maxval=3.0)
+use_strength_filter = input.bool(true, "Use Swing Strength Filter")
+use_atr_filter = input.bool(true, "Use ATR-based Filter")
+
+// Calculate ATR for dynamic filtering
+atr_period = input.int(14, "ATR Period", minval=5, maxval=50)
+atr_value = ta.atr(atr_period)
+
+// Volume moving average for filtering
+volume_ma = ta.sma(volume, 20)
+
+// Basic swing point detection
+is_swing_high_raw = ta.pivothigh(high, swing_length, swing_length)
+is_swing_low_raw = ta.pivotlow(low, swing_length, swing_length)
+
+// Enhanced swing point filtering function
+filter_swing_high(swing_high_price) =>
+    if na(swing_high_price)
+        false
+    else
+        // Get the price range around the swing point (look further back for more context)
+        lookback_period = math.max(swing_length * 2, 10)
+        left_low = ta.lowest(low, lookback_period)[swing_length]
+        right_low = ta.lowest(low, lookback_period)
+        surrounding_low = math.min(left_low, right_low)
+        
+        // Calculate swing strength as percentage of the swing high
+        swing_strength = (swing_high_price - surrounding_low) / swing_high_price
+        
+        // ATR-based significance check
+        atr_significance = (swing_high_price - surrounding_low) >= (atr_value * atr_multiplier)
+        
+        // Volume confirmation (if enabled)
+        volume_confirm = not volume_filter or (volume[swing_length] >= volume_ma[swing_length] * min_volume_ratio)
+        
+        // Apply filters based on user selection
+        strength_ok = not use_strength_filter or swing_strength >= min_swing_strength
+        atr_ok = not use_atr_filter or atr_significance
+        
+        strength_ok and atr_ok and volume_confirm
+
+filter_swing_low(swing_low_price) =>
+    if na(swing_low_price)
+        false
+    else
+        // Get the price range around the swing point (look further back for more context)
+        lookback_period = math.max(swing_length * 2, 10)
+        left_high = ta.highest(high, lookback_period)[swing_length]
+        right_high = ta.highest(high, lookback_period)
+        surrounding_high = math.max(left_high, right_high)
+        
+        // Calculate swing strength as percentage of the swing low
+        swing_strength = (surrounding_high - swing_low_price) / swing_low_price
+        
+        // ATR-based significance check
+        atr_significance = (surrounding_high - swing_low_price) >= (atr_value * atr_multiplier)
+        
+        // Volume confirmation (if enabled)
+        volume_confirm = not volume_filter or (volume[swing_length] >= volume_ma[swing_length] * min_volume_ratio)
+        
+        // Apply filters based on user selection
+        strength_ok = not use_strength_filter or swing_strength >= min_swing_strength
+        atr_ok = not use_atr_filter or atr_significance
+        
+        strength_ok and atr_ok and volume_confirm
+
+// Apply ALL active filters to swing points (must pass ALL enabled filters)
+is_swing_high = is_swing_high_raw and filter_swing_high(is_swing_high_raw) ? is_swing_high_raw : na
+is_swing_low = is_swing_low_raw and filter_swing_low(is_swing_low_raw) ? is_swing_low_raw : na
+
+// Additional filter: Remove swing points that are too close to recent ones
+var float last_swing_high = na
+var int last_swing_high_bar = na
+var float last_swing_low = na
+var int last_swing_low_bar = na
+
+min_distance_bars = input.int(8, "Minimum Distance Between Swings (bars)", minval=1, maxval=50)
+
+// Distance-based filtering for swing highs
+is_swing_high_filtered = is_swing_high
+if not na(is_swing_high) and not na(last_swing_high_bar)
+    if (bar_index - swing_length) - last_swing_high_bar < min_distance_bars
+        // Keep the higher of the two swing highs
+        if is_swing_high <= last_swing_high
+            is_swing_high_filtered := na
+
+// Distance-based filtering for swing lows  
+is_swing_low_filtered = is_swing_low
+if not na(is_swing_low) and not na(last_swing_low_bar)
+    if (bar_index - swing_length) - last_swing_low_bar < min_distance_bars
+        // Keep the lower of the two swing lows
+        if is_swing_low >= last_swing_low
+            is_swing_low_filtered := na
+
+// Update last swing point tracking
+if not na(is_swing_high_filtered)
+    last_swing_high := is_swing_high_filtered
+    last_swing_high_bar := bar_index - swing_length
+
+if not na(is_swing_low_filtered)
+    last_swing_low := is_swing_low_filtered
+    last_swing_low_bar := bar_index - swing_length
+
+// Final filtered swing points (these are the ONLY ones that get stored and plotted)
+final_swing_high = is_swing_high_filtered
+final_swing_low = is_swing_low_filtered
+
+// Arrays to store ONLY the final filtered swing points
+var swing_highs = array.new<float>()
+var swing_high_bars = array.new<int>()
+var swing_lows = array.new<float>()
+var swing_low_bars = array.new<int>()
+
+// Store ONLY filtered swing points (these are used for M/W pattern detection)
+if final_swing_high
+    array.push(swing_highs, final_swing_high)
+    array.push(swing_high_bars, bar_index - swing_length + swing_offset)
+    if array.size(swing_highs) > 10
+        array.shift(swing_highs)
+        array.shift(swing_high_bars)
+    if barstate.isconfirmed
+        log.info("Final Swing High: " + str.tostring(final_swing_high) + " at bar " + str.tostring(bar_index - swing_length + swing_offset))
+
+if final_swing_low
+    array.push(swing_lows, final_swing_low)
+    array.push(swing_low_bars, bar_index - swing_length + swing_offset)
+    if array.size(swing_lows) > 10
+        array.shift(swing_lows)
+        array.shift(swing_low_bars)
+    if barstate.isconfirmed
+        log.info("Final Swing Low: " + str.tostring(final_swing_low) + " at bar " + str.tostring(bar_index - swing_length + swing_offset))
+
+// Function to detect M pattern (unchanged)
+detect_m_pattern() =>
+    var line neckline = na
+    var label top1_label = na
+    var label top2_label = na
+    
+    if array.size(swing_highs) >= 2 and array.size(swing_lows) >= 1
+        high2 = array.get(swing_highs, array.size(swing_highs) - 1)
+        high2_bar = array.get(swing_high_bars, array.size(swing_high_bars) - 1)
+        high1 = array.get(swing_highs, array.size(swing_highs) - 2)
+        high1_bar = array.get(swing_high_bars, array.size(swing_high_bars) - 2)
+        
+        valley_low = high
+        valley_bar = bar_index
+        
+        for i = 0 to array.size(swing_lows) - 1
+            low_val = array.get(swing_lows, i)
+            low_bar = array.get(swing_low_bars, i)
+            if low_bar > high1_bar and low_bar < high2_bar and low_val < valley_low
+                valley_low := low_val
+                valley_bar := low_bar
+        
+        pattern_width = high2_bar - high1_bar
+        if pattern_width >= min_pattern_bars and valley_low < math.min(high1, high2)
+            neckline_level = valley_low
+            
+            current_break = false
+            if bar_index > high2_bar + 1
+                for j = high2_bar + 1 to bar_index
+                    if low[bar_index - j] <= neckline_level * (1 - neckline_break_threshold)
+                        current_break := true
+                        break
+            
+            
+            if current_break and barstate.isconfirmed
+                //top1_label := label.new(x=high1_bar + swing_offset, y=high1, text="Top 1", style=label.style_label_down, color=color.red, textcolor=color.white, size=size.tiny)
+                //top2_label := label.new(x=high2_bar + swing_offset, y=high2, text="Top 2", style=label.style_label_down, color=color.red, textcolor=color.white, size=size.tiny)
+                
+                //log.info("M Pattern detected: High1=" + str.tostring(high1) + " High2=" + str.tostring(high2) + " Valley=" + str.tostring(valley_low))
+                true
+            else
+                false
+        else
+            false
+    else
+        false
+
+// Function to detect W pattern (unchanged)
+detect_w_pattern() =>
+    var line neckline = na
+    var label bottom1_label = na
+    var label bottom2_label = na
+    
+    if array.size(swing_lows) >= 2 and array.size(swing_highs) >= 1
+        low2 = array.get(swing_lows, array.size(swing_lows) - 1)
+        low2_bar = array.get(swing_low_bars, array.size(swing_low_bars) - 1)
+        low1 = array.get(swing_lows, array.size(swing_lows) - 2)
+        low1_bar = array.get(swing_low_bars, array.size(swing_low_bars) - 2)
+        
+        peak_high = low
+        peak_bar = bar_index
+        
+        for i = 0 to array.size(swing_highs) - 1
+            high_val = array.get(swing_highs, i)
+            high_bar = array.get(swing_high_bars, i)
+            if high_bar > low1_bar and high_bar < low2_bar and high_val > peak_high
+                peak_high := high_val
+                peak_bar := high_bar
+        
+        pattern_width = low2_bar - low1_bar
+        if pattern_width >= min_pattern_bars and peak_high > math.max(low1, low2)
+            neckline_level = peak_high
+            
+            current_break = false
+            if bar_index > low2_bar + 1
+                for j = low2_bar + 1 to bar_index
+                    if high[bar_index - j] >= neckline_level * (1 + neckline_break_threshold)
+                        current_break := true
+                        break
+            
+            if current_break and barstate.isconfirmed
+                //bottom1_label := label.new(x=low1_bar + swing_offset, y=low1, text="Bottom 1", style=label.style_label_up, color=color.green, textcolor=color.white, size=size.tiny)
+                //bottom2_label := label.new(x=low2_bar + swing_offset, y=low2, text="Bottom 2", style=label.style_label_up, color=color.green, textcolor=color.white, size=size.tiny)
+                
+                //log.info("W Pattern detected: Low1=" + str.tostring(low1) + " Low2=" + str.tostring(low2) + " Peak=" + str.tostring(peak_high))
+                true
+            else
+                false
+        else
+            false
+    else
+        false
+
+// Detect patterns
+m_detected = detect_m_pattern()
+w_detected = detect_w_pattern()
+
+// Plot ONLY the final filtered swing points (no grayed out points)
+plotshape(final_swing_high, style=shape.triangledown, location=location.abovebar, color=color.red, size=size.tiny, offset=swing_offset, title="Swing High")
+plotshape(final_swing_low, style=shape.triangleup, location=location.belowbar, color=color.green, size=size.tiny, offset=swing_offset, title="Swing Low")
+
+// Alert conditions
+alertcondition(m_detected, title="M Pattern Detected", message="M Pattern detected on {{ticker}}")
+alertcondition(w_detected, title="W Pattern Detected", message="W Pattern detected on {{ticker}}")
+
+// Enhanced debug info
+if barstate.islast
+    var table debug_table = table.new(position.top_right, 2, 8, bgcolor=color.white, border_width=1)
+    table.cell(debug_table, 0, 0, "Final Swing Highs", text_color=color.red)
+    table.cell(debug_table, 1, 0, str.tostring(array.size(swing_highs)), text_color=color.black)
+    table.cell(debug_table, 0, 1, "Final Swing Lows", text_color=color.green)
+    table.cell(debug_table, 1, 1, str.tostring(array.size(swing_lows)), text_color=color.black)
+    table.cell(debug_table, 0, 2, "Strength Filter", text_color=color.black)
+    table.cell(debug_table, 1, 2, use_strength_filter ? str.tostring(min_swing_strength * 100) + "%" : "OFF", text_color=color.black)
+    table.cell(debug_table, 0, 3, "ATR Filter", text_color=color.black)
+    table.cell(debug_table, 1, 3, use_atr_filter ? str.tostring(atr_multiplier) + "x" : "OFF", text_color=color.black)
+    table.cell(debug_table, 0, 4, "Volume Filter", text_color=color.black)
+    table.cell(debug_table, 1, 4, volume_filter ? str.tostring(min_volume_ratio) + "x" : "OFF", text_color=color.black)
+    table.cell(debug_table, 0, 5, "Min Distance", text_color=color.black)
+    table.cell(debug_table, 1, 5, str.tostring(min_distance_bars) + " bars", text_color=color.black)
+    table.cell(debug_table, 0, 6, "Current ATR", text_color=color.black)
+    table.cell(debug_table, 1, 6, str.tostring(atr_value, "#.####"), text_color=color.black)
+    table.cell(debug_table, 0, 7, "Swing Length", text_color=color.black)
+    table.cell(debug_table, 1, 7, str.tostring(swing_length), text_color=color.black)
