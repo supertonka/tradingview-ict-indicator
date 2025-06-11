@@ -9,7 +9,7 @@ swing_offset = input.int(-4, "Swing Bar Offset (negative = left, positive = righ
 
 // New filtering parameters - adjusted for more selective filtering
 min_swing_strength = input.float(2.0, "Minimum Swing Strength %", minval=0.1, maxval=10.0) / 100
-atr_multiplier = input.float(2.0, "ATR Multiplier for Significance", minval=0.5, maxval=5.0)
+atr_multiplier = input.float(1.5, "ATR Multiplier for Significance", minval=0.5, maxval=5.0)
 volume_filter = input.bool(false, "Use Volume Filter (optional)")
 min_volume_ratio = input.float(1.2, "Minimum Volume Ratio", minval=0.5, maxval=3.0)
 use_strength_filter = input.bool(true, "Use Swing Strength Filter")
@@ -176,12 +176,11 @@ detect_m_pattern() =>
                         current_break := true
                         break
             
-            
             if current_break and barstate.isconfirmed
-                //top1_label := label.new(x=high1_bar + swing_offset, y=high1, text="Top 1", style=label.style_label_down, color=color.red, textcolor=color.white, size=size.tiny)
-                //top2_label := label.new(x=high2_bar + swing_offset, y=high2, text="Top 2", style=label.style_label_down, color=color.red, textcolor=color.white, size=size.tiny)
+                top1_label := label.new(x=high1_bar + swing_offset, y=high1, text="Top 1", style=label.style_label_down, color=color.red, textcolor=color.white, size=size.small)
+                top2_label := label.new(x=high2_bar + swing_offset, y=high2, text="Top 2", style=label.style_label_down, color=color.red, textcolor=color.white, size=size.small)
                 
-                //log.info("M Pattern detected: High1=" + str.tostring(high1) + " High2=" + str.tostring(high2) + " Valley=" + str.tostring(valley_low))
+                log.info("M Pattern detected: High1=" + str.tostring(high1) + " High2=" + str.tostring(high2) + " Valley=" + str.tostring(valley_low))
                 true
             else
                 false
@@ -224,10 +223,10 @@ detect_w_pattern() =>
                         break
             
             if current_break and barstate.isconfirmed
-                //bottom1_label := label.new(x=low1_bar + swing_offset, y=low1, text="Bottom 1", style=label.style_label_up, color=color.green, textcolor=color.white, size=size.tiny)
-                //bottom2_label := label.new(x=low2_bar + swing_offset, y=low2, text="Bottom 2", style=label.style_label_up, color=color.green, textcolor=color.white, size=size.tiny)
+                bottom1_label := label.new(x=low1_bar + swing_offset, y=low1, text="Bottom 1", style=label.style_label_up, color=color.green, textcolor=color.white, size=size.small)
+                bottom2_label := label.new(x=low2_bar + swing_offset, y=low2, text="Bottom 2", style=label.style_label_up, color=color.green, textcolor=color.white, size=size.small)
                 
-                //log.info("W Pattern detected: Low1=" + str.tostring(low1) + " Low2=" + str.tostring(low2) + " Peak=" + str.tostring(peak_high))
+                log.info("W Pattern detected: Low1=" + str.tostring(low1) + " Low2=" + str.tostring(low2) + " Peak=" + str.tostring(peak_high))
                 true
             else
                 false
@@ -241,8 +240,8 @@ m_detected = detect_m_pattern()
 w_detected = detect_w_pattern()
 
 // Plot ONLY the final filtered swing points (no grayed out points)
-plotshape(final_swing_high, style=shape.triangledown, location=location.abovebar, color=color.red, size=size.tiny, offset=swing_offset, title="Swing High")
-plotshape(final_swing_low, style=shape.triangleup, location=location.belowbar, color=color.green, size=size.tiny, offset=swing_offset, title="Swing Low")
+plotshape(final_swing_high, style=shape.triangledown, location=location.abovebar, color=color.red, size=size.normal, offset=swing_offset, title="Swing High")
+plotshape(final_swing_low, style=shape.triangleup, location=location.belowbar, color=color.green, size=size.normal, offset=swing_offset, title="Swing Low")
 
 // Alert conditions
 alertcondition(m_detected, title="M Pattern Detected", message="M Pattern detected on {{ticker}}")
